@@ -162,7 +162,7 @@ jobs:
       # 3. 下载所有 build job 上传的产物到 dist/
       #    merge-multiple: true 把所有 artifact 合并到同一目录
       - name: Download all binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
