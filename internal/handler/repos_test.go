@@ -1,6 +1,6 @@
 // Package handler 的 endpoint 测试：repos.go
 //
-// 覆盖 HandleReposV1 的 7 个 query 场景：
+// 覆盖 HandleReposV1 的核心 query 场景：
 //  1. 正常返回（默认 since=daily, 无 lang, 无 limit）
 //  2. since=daily / weekly / monthly
 //  3. since 非法值（yearly）→ 400
@@ -10,6 +10,12 @@
 //  7. limit 上限 clamp 到 100
 //  8. 缓存状态：返回 0 条时 cacheStatus=cold，否则 fresh
 //  9. 内部 store 错误 → 500
+//
+// R-06.2 新增缓存场景：
+//  10. cache hit：第二次同 query 不再触达 store（callCount 仍为 1）
+//  11. ETag 304：cache hit + 客户端带匹配 If-None-Match → 304 + 无 body
+//  12. Invalidate 后强制走 store：cache miss 重建
+//  13. Invalidate 的桶仅影响对应 since（清 daily 不动 weekly）
 //
 // fakeStore 实现 store.Store interface,只覆盖 GetRepos 调用路径，
 // 其他方法 panic（不调）。
@@ -114,11 +120,23 @@ func makeRepo(name, lang string, stars int) model.TrendingRepo {
 	}
 }
 
-// doReq 调 HandleReposV1 走一次 HTTP,返回 *httptest.ResponseRecorder。
+// doReq 调 HandleReposV1 走一次 HTTP，每个调用用一个**独立的新 cache**——
+// 让原有用例与 cache 状态无关（避免跨用例污染）。
 func doReq(s store.Store, query string) *httptest.ResponseRecorder {
+	return doReqWith(s, NewTrendingCache(), query, nil)
+}
+
+// doReqWith 让需要复用同一缓存 / 自定义 header 的测试用例显式注入 cache 和 header。
+// headers nil 时不加任何额外 header。
+func doReqWith(s store.Store, c *TrendingCache, query string, headers http.Header) *httptest.ResponseRecorder {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/api/v1/repos?"+query, nil)
-	HandleReposV1(s)(w, r)
+	for k, vv := range headers {
+		for _, v := range vv {
+			r.Header.Add(k, v)
+		}
+	}
+	HandleReposV1(s, c)(w, r)
 	return w
 }
 
@@ -346,6 +364,145 @@ func TestRepos_DescriptionFallbackToDescText(t *testing.T) {
 	card := env.Data[0]
 	if card.Description == nil || *card.Description != "desc of r1" {
 		t.Errorf("description should fall back to desc_text, got %v", card.Description)
+	}
+}
+
+// --- R-06.2 cache 行为测试 ---
+
+// TestRepos_CacheHitSkipsStore：同 query 第二次请求应该 cache 命中，
+// 不再触达 store（callCount 维持 1）。
+func TestRepos_CacheHitSkipsStore(t *testing.T) {
+	f := &fakeStore{repos: []model.TrendingRepo{makeRepo("r1", "go", 100)}}
+	c := NewTrendingCache()
+
+	w1 := doReqWith(f, c, "since=daily&lang=go&limit=10", nil)
+	if w1.Code != http.StatusOK {
+		t.Fatalf("first call: want 200, got %d", w1.Code)
+	}
+	if f.callCount != 1 {
+		t.Fatalf("first call should hit store once, got callCount=%d", f.callCount)
+	}
+
+	w2 := doReqWith(f, c, "since=daily&lang=go&limit=10", nil)
+	if w2.Code != http.StatusOK {
+		t.Fatalf("second call: want 200, got %d", w2.Code)
+	}
+	if f.callCount != 1 {
+		t.Errorf("second call should NOT hit store (cache hit), callCount=%d", f.callCount)
+	}
+	// body 一致
+	if w1.Body.String() != w2.Body.String() {
+		t.Errorf("cache-hit response body should be identical to first call")
+	}
+	// 必带 ETag / Last-Modified header
+	if w2.Header().Get("ETag") == "" {
+		t.Errorf("cache-hit response should expose ETag header")
+	}
+	if w2.Header().Get("Last-Modified") == "" {
+		t.Errorf("cache-hit response should expose Last-Modified header")
+	}
+}
+
+// TestRepos_ETagReturns304：客户端带匹配的 If-None-Match 时返回 304 + 无 body。
+func TestRepos_ETagReturns304(t *testing.T) {
+	f := &fakeStore{repos: []model.TrendingRepo{makeRepo("r1", "go", 100)}}
+	c := NewTrendingCache()
+
+	w1 := doReqWith(f, c, "since=daily", nil)
+	etag := w1.Header().Get("ETag")
+	if etag == "" {
+		t.Fatalf("first call should set ETag")
+	}
+
+	headers := http.Header{}
+	headers.Set("If-None-Match", etag)
+	w2 := doReqWith(f, c, "since=daily", headers)
+
+	if w2.Code != http.StatusNotModified {
+		t.Errorf("matching If-None-Match: want 304, got %d", w2.Code)
+	}
+	if w2.Body.Len() != 0 {
+		t.Errorf("304 response should have empty body, got %d bytes", w2.Body.Len())
+	}
+	if f.callCount != 1 {
+		t.Errorf("304 path should still come from cache, store callCount=%d", f.callCount)
+	}
+}
+
+// TestRepos_InvalidateForcesRefetch：Invalidate 后下次请求强制走 store 重建 cache。
+func TestRepos_InvalidateForcesRefetch(t *testing.T) {
+	f := &fakeStore{repos: []model.TrendingRepo{makeRepo("r1", "go", 100)}}
+	c := NewTrendingCache()
+
+	_ = doReqWith(f, c, "since=daily", nil)
+	if f.callCount != 1 {
+		t.Fatalf("first call: callCount=%d, want 1", f.callCount)
+	}
+
+	c.Invalidate("daily")
+
+	_ = doReqWith(f, c, "since=daily", nil)
+	if f.callCount != 2 {
+		t.Errorf("after Invalidate: store should be hit again, callCount=%d (want 2)", f.callCount)
+	}
+}
+
+// TestRepos_InvalidateOtherBucketUnaffected：Invalidate("daily") 不应清掉 weekly 的 cache。
+func TestRepos_InvalidateOtherBucketUnaffected(t *testing.T) {
+	f := &fakeStore{repos: []model.TrendingRepo{makeRepo("r1", "go", 100)}}
+	c := NewTrendingCache()
+
+	_ = doReqWith(f, c, "since=daily", nil)
+	_ = doReqWith(f, c, "since=weekly", nil)
+	if f.callCount != 2 {
+		t.Fatalf("after two fresh calls: callCount=%d, want 2", f.callCount)
+	}
+
+	c.Invalidate("daily")
+
+	// weekly 应仍然命中
+	_ = doReqWith(f, c, "since=weekly", nil)
+	if f.callCount != 2 {
+		t.Errorf("weekly should still be cached after Invalidate(daily), callCount=%d (want 2)", f.callCount)
+	}
+	// daily 应需要重新查 store
+	_ = doReqWith(f, c, "since=daily", nil)
+	if f.callCount != 3 {
+		t.Errorf("daily should refetch after Invalidate(daily), callCount=%d (want 3)", f.callCount)
+	}
+}
+
+// TestCacheTTLFor 验证各 since 的 TTL。
+func TestCacheTTLFor(t *testing.T) {
+	cases := []struct {
+		since string
+		want  time.Duration
+	}{
+		{"daily", 1 * time.Hour},
+		{"weekly", 6 * time.Hour},
+		{"monthly", 24 * time.Hour},
+		{"unknown", 1 * time.Hour}, // fallback
+	}
+	for _, tc := range cases {
+		t.Run(tc.since, func(t *testing.T) {
+			if got := TTLFor(tc.since); got != tc.want {
+				t.Errorf("TTLFor(%s) = %s, want %s", tc.since, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestCacheInvalidateAll 验证 InvalidateAll 清空所有 entry。
+func TestCacheInvalidateAll(t *testing.T) {
+	c := NewTrendingCache()
+	c.Set("daily|*|100", []byte(`{"data":[]}`))
+	c.Set("weekly|*|100", []byte(`{"data":[]}`))
+	if c.Size() != 2 {
+		t.Fatalf("after 2 sets, size=%d", c.Size())
+	}
+	c.InvalidateAll()
+	if c.Size() != 0 {
+		t.Errorf("InvalidateAll: size=%d, want 0", c.Size())
 	}
 }
 

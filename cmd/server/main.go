@@ -80,8 +80,12 @@ func main() {
 	// Wiki Notifier（增量预热 wiki-api 缓存，通过 WIKI_API_KEY 控制开关）
 	wikiNotifier := notifier.NewWikiNotifier()
 
-	// Scheduler
-	sch := scheduler.New(sqliteStore, enc, wikiNotifier)
+	// R-06.2: trending 内存缓存（分桶 TTL daily 1h / weekly 6h / monthly 24h + ETag 304）。
+	// 单例，由 handler.HandleReposV1 读 + scheduler 写（写=Invalidate 桶）。
+	trendingCache := handler.NewTrendingCache()
+
+	// Scheduler — 把 trendingCache 当作 CacheInvalidator 注入，cron 跑完同步后失效对应 since 桶。
+	sch := scheduler.New(sqliteStore, enc, wikiNotifier, trendingCache)
 
 	// Bearer 鉴权中间件
 	authMW := middleware.NewBearerAuth(apiKeys)
@@ -92,7 +96,7 @@ func main() {
 	// R-03 (2026-06-11): /api/v1/ping 专门给 Starcat 客户端「测试连接」按钮用，
 	// 在 middleware 后面挂——同时验证服务可达 + Bearer Key 正确。详见 handler/ping.go。
 	mux.Handle("GET /api/v1/ping", authMW.Wrap(handler.HandlePingV1("trending")))
-	mux.Handle("GET /api/v1/repos", authMW.Wrap(handler.HandleReposV1(sqliteStore)))
+	mux.Handle("GET /api/v1/repos", authMW.Wrap(handler.HandleReposV1(sqliteStore, trendingCache)))
 	// /api/v1/languages 现在直接读 store 聚合（trending_repos 维度），不再走 scheduler 的
 	// langCache（langCache 抓的是 GitHub trending 页面菜单，与实际数据无关）。详见
 	// handler/languages.go 顶部的「历史演进」注释。
