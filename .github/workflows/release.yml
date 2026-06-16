@@ -21,7 +21,7 @@ on:
 # 项目参数: 3 个 starcat-*-api 项目共用同一份 release.yml 模板
 # 同步修改规则见 supports/AGENTS.md: 3 项目任何 workflow 改动必须同步
 # - BINARY_NAME: 二进制输出名 (必须与 go.yml build -o 一致)
-# - ENTRY:      入口包路径 (sharing 用 ./cmd/server/, trending/weekly 用 .)
+# - ENTRY:      入口包路径 (trending 用 ./cmd/server/, trending/weekly 用 .)
 env:
   BINARY_NAME: starcat-trending-api
   ENTRY: ./cmd/server/
