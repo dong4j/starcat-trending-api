@@ -178,7 +178,7 @@ jobs:
       #    generate_release_notes: true 自动从 PR + commit 聚合 release notes
       #    files 模式 dist/* 会把 checksums.txt 也带上
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: ${{ steps.version.outputs.tag }}
