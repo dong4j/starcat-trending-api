@@ -261,7 +261,11 @@ func (s *SQLiteStore) GetLanguages() ([]model.Language, error) {
 // 实现要点：
 //  1. `COALESCE(NULLIF(language, ''), '__uncategorized__')` 把 NULL / 空串都归一到哨兵 key
 //  2. 仅统计 `is_available = 1 AND enriched_at IS NOT NULL`，与 GetRepos 可见性一致
-//  3. 排序：先按 `is_uncategorized ASC`（未分类排最后），再按 `cnt DESC`，最后按 key ASC 兜底稳定
+//  3. 排序（dong4j 2026-06-16 调整）：先按 `is_uncategorized DESC`（**未分类排第 1 位**），
+//     再按 `cnt DESC`，最后按 key ASC 兜底稳定。客户端 sidebar / picker 会在前面 prepend
+//     「全部」哨兵,所以最终展示顺序是: 全部 → 未分类 → count 最多 → ... → count 最少。
+//     **历史**: 之前是 `is_uncategorized ASC`(未分类排最后), dong4j 反馈用户找「未分类」要
+//     滚到底太吃力, 改为放在前列与「全部」紧邻, 让用户一眼能看到这个特殊选项。
 //  4. **不**按 since 维度切片——三个 period 合并；前端切 period 不需要重拉
 //
 // 关键约束（已踩过的坑）：
@@ -272,7 +276,7 @@ func (s *SQLiteStore) GetLanguages() ([]model.Language, error) {
 //     避免后端 const 改了 SQL 漏改
 func (s *SQLiteStore) GetAggregatedLanguages() ([]model.LanguageAggregate, error) {
 	// 把哨兵值通过参数注入，避免 SQL/Go 两边 const 漂移；
-	// 同时通过 `key = ?` 计算 `is_uncategorized` 标记，让排序「未分类排最后」与哨兵 key 解耦。
+	// 同时通过 `key = ?` 计算 `is_uncategorized` 标记，让排序「未分类排最前」与哨兵 key 解耦。
 	query := `
 		SELECT
 			COALESCE(NULLIF(language, ''), ?) AS key,
@@ -281,7 +285,7 @@ func (s *SQLiteStore) GetAggregatedLanguages() ([]model.LanguageAggregate, error
 		FROM trending_repos
 		WHERE is_available = 1 AND enriched_at IS NOT NULL
 		GROUP BY key
-		ORDER BY is_uncategorized ASC, cnt DESC, key ASC
+		ORDER BY is_uncategorized DESC, cnt DESC, key ASC
 	`
 	rows, err := s.db.Query(query,
 		model.UncategorizedLanguageKey,

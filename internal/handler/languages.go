@@ -26,17 +26,19 @@ import (
 //	{
 //	  "schema_version": 1,
 //	  "data": [
+//	    { "key": "__uncategorized__", "label": "Uncategorized", "count": 5 },
 //	    { "key": "Python", "label": "Python", "count": 42 },
 //	    { "key": "Go", "label": "Go", "count": 31 },
 //	    ...
-//	    { "key": "__uncategorized__", "label": "Uncategorized", "count": 5 }
 //	  ],
 //	  "meta": { "total": N, "generated_at": "...", "cache_status": "fresh" }
 //	}
 //
 // 关键约束：
 //   - 实时聚合：每次请求都打一次 SQL（trending_repos 通常 ≤ 几百行，COUNT GROUP BY 微秒级）
-//   - 排序：未分类**永远排在最后**，其它按 count DESC、key ASC（详见 SQLiteStore.GetAggregatedLanguages 注释）
+//   - 排序（dong4j 2026-06-16 调整）：**未分类排第 1 位**，其它按 count DESC、key ASC
+//     (详见 SQLiteStore.GetAggregatedLanguages 注释)。客户端 sidebar / picker 会在前面
+//     prepend「全部」哨兵, 所以最终展示顺序: 全部 → 未分类 → count 最多 → ... → count 最少。
 //   - cache_status：聚合数据来源是「已 enrich + is_available」的 repo，
 //     有数据返 `fresh`，空表返 `cold`（与 /api/v1/repos 的语义对齐）
 //   - 错误：只在 store DB 层异常时返 500，正常的「空结果」返 200 + 空数组

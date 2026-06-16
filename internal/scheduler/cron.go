@@ -19,11 +19,27 @@ import (
 	"github.com/dong4j/starcat-trending-api/internal/store"
 )
 
+// CacheInvalidator 是 scheduler 完成某 since 桶同步后需要"主动失效内存缓存"的最小接口。
+//
+// 让 scheduler 包**不直接 import handler 包**：handler/trending_cache.go 的 *TrendingCache
+// 自动满足这个接口；main.go 把实例注入到 scheduler.New(...) 即可。
+//
+// 这是 R-06.2（2026-06-15）拆出的接口，目的是避免 scheduler ↔ handler 双向 import 循环。
+type CacheInvalidator interface {
+	Invalidate(since string)
+}
+
+// noopCacheInvalidator 是 nil-safe 占位，仅用于测试 / 调用方暂时不接缓存的场景。
+type noopCacheInvalidator struct{}
+
+func (noopCacheInvalidator) Invalidate(string) {}
+
 // Scheduler 管理定时爬虫任务。
 type Scheduler struct {
 	store        store.Store
 	enricher     *enricher.Enricher
 	wikiNotifier *notifier.WikiNotifier
+	cache        CacheInvalidator // R-06.2: 完成同步后主动失效对应 since 桶；nil 时用 noop
 	cron         *cron.Cron
 	langCache    *languageCache
 	mu           sync.Mutex
@@ -38,11 +54,19 @@ type languageCache struct {
 }
 
 // New 创建 Scheduler。
-func New(s store.Store, enc *enricher.Enricher, wn *notifier.WikiNotifier) *Scheduler {
+//
+// cache 是 R-06.2 加的可选依赖：完成 syncDaily/Weekly/Monthly 后主动失效对应 since 桶
+// 让客户端下次请求强制重建。传 nil 时退化到 noop（不报错，仅不做缓存失效），
+// 方便测试 / 暂未接缓存的部署场景。
+func New(s store.Store, enc *enricher.Enricher, wn *notifier.WikiNotifier, cache CacheInvalidator) *Scheduler {
+	if cache == nil {
+		cache = noopCacheInvalidator{}
+	}
 	sch := &Scheduler{
 		store:        s,
 		enricher:     enc,
 		wikiNotifier: wn,
+		cache:        cache,
 		cron:         cron.New(cron.WithSeconds()),
 		langCache:    &languageCache{},
 		running:      make(map[string]bool),
@@ -115,6 +139,11 @@ func (sch *Scheduler) syncDaily() {
 	_ = sch.store.RecomputePriorities("daily")
 	sch.enricher.EnrichAll()
 	sch.wikiNotifier.NotifyRepos(repos)
+
+	// R-06.2：scrape + enrich 跑完后主动失效内存缓存对应 since 桶。
+	// 不在中间失效（enrich 还没补完时让缓存继续提供旧数据，更"smooth"），
+	// 不在 scrape 之前失效（避免短暂的"空 200"窗口）。
+	sch.cache.Invalidate("daily")
 }
 
 // syncWeekly / syncMonthly 历史 bug 修复（dong4j 2026-06-11 反馈）：
@@ -139,6 +168,7 @@ func (sch *Scheduler) syncWeekly() {
 	_ = sch.store.RecomputePriorities("weekly")
 	sch.enricher.EnrichAll()
 	sch.wikiNotifier.NotifyRepos(repos)
+	sch.cache.Invalidate("weekly") // R-06.2: 同 syncDaily 注释
 }
 
 func (sch *Scheduler) syncMonthly() {
@@ -152,6 +182,7 @@ func (sch *Scheduler) syncMonthly() {
 	_ = sch.store.RecomputePriorities("monthly")
 	sch.enricher.EnrichAll()
 	sch.wikiNotifier.NotifyRepos(repos)
+	sch.cache.Invalidate("monthly") // R-06.2: 同 syncDaily 注释
 }
 
 func (sch *Scheduler) enrichLongTail() {

@@ -423,7 +423,7 @@ func TestUpsertLanguages(t *testing.T) {
 // TestGetAggregatedLanguages_BasicGrouping 验证：
 //  1. 仅返回 enriched + available 的 repo 对应的语言
 //  2. NULL / "" language 归到 __uncategorized__ 一桶
-//  3. 排序：未分类排最后；其余按 count DESC, key ASC
+//  3. 排序（dong4j 2026-06-16 调整）：**未分类排第 1 位**；其余按 count DESC, key ASC
 //  4. 同一 repo 在 daily / weekly 两个 since 都有行 → 仍按行数累加（这是当前设计：
 //     一个 repo 上多个 since 的命中视为多次 trending 出现，count 叠加）
 func TestGetAggregatedLanguages_BasicGrouping(t *testing.T) {
@@ -488,13 +488,13 @@ func TestGetAggregatedLanguages_BasicGrouping(t *testing.T) {
 		t.Fatalf("GetAggregatedLanguages: %v", err)
 	}
 
-	// 期望排序（SQL 排序键：is_uncategorized ASC, count DESC, key ASC）：
-	//   - is_uncategorized=0 的全部排在 1 的前面（未分类永远最后）
+	// 期望排序（SQL 排序键: is_uncategorized DESC, count DESC, key ASC）：
+	//   - is_uncategorized=1 的排在最前面（未分类永远第 1 位 — dong4j 2026-06-16 调整）
 	//   - 普通语言里按 count DESC：Go(2), Python(2), Rust(1)
 	//   - count 相同时按 key ASC：Go < Python（字典序）
-	// 最终：Go(2) → Python(2) → Rust(1) → __uncategorized__(2)
-	wantKeys := []string{"Go", "Python", "Rust", model.UncategorizedLanguageKey}
-	wantCounts := []int{2, 2, 1, 2}
+	// 最终：__uncategorized__(2) → Go(2) → Python(2) → Rust(1)
+	wantKeys := []string{model.UncategorizedLanguageKey, "Go", "Python", "Rust"}
+	wantCounts := []int{2, 2, 2, 1}
 	if len(got) != len(wantKeys) {
 		t.Fatalf("want %d aggregates, got %d (%+v)", len(wantKeys), len(got), got)
 	}
@@ -508,20 +508,20 @@ func TestGetAggregatedLanguages_BasicGrouping(t *testing.T) {
 		}
 	}
 
-	// 未分类项的 label 必须是 model.UncategorizedLanguageLabel
-	last := got[len(got)-1]
-	if last.Key != model.UncategorizedLanguageKey {
-		t.Errorf("last item should be uncategorized, got key=%q", last.Key)
+	// 未分类项的 label 必须是 model.UncategorizedLanguageLabel(2026-06-16 起排第 1 位)
+	first := got[0]
+	if first.Key != model.UncategorizedLanguageKey {
+		t.Errorf("first item should be uncategorized, got key=%q", first.Key)
 	}
-	if last.Label != model.UncategorizedLanguageLabel {
+	if first.Label != model.UncategorizedLanguageLabel {
 		t.Errorf("uncategorized label: want %q, got %q",
-			model.UncategorizedLanguageLabel, last.Label)
+			model.UncategorizedLanguageLabel, first.Label)
 	}
 
-	// 普通语言的 label 应该等于 key
-	if got[0].Label != got[0].Key {
+	// 普通语言的 label 应该等于 key(取 got[1]: 第 2 位是普通语言里 count 最大的 Go)
+	if got[1].Label != got[1].Key {
 		t.Errorf("non-uncategorized label should equal key, got key=%q label=%q",
-			got[0].Key, got[0].Label)
+			got[1].Key, got[1].Label)
 	}
 }
 
