@@ -1,6 +1,8 @@
 # ===========================================
 # Makefile - 统一项目命令入口
 # ===========================================
+## ⚠️ 发布前：手动修改下方的 VERSION，然后执行 `make release`
+VERSION := 1.1.1
 
 # 变量定义
 BINARY_NAME := server
@@ -121,3 +123,6 @@ check: fmt-check vet test ## 完整检查 (format + vet + test)
 .PHONY: all
 all: clean deps check build ## 完整构建 (clean + deps + check + build)
 	@echo "✓ 完整构建完成"
+
+release: check build ## 发布版本 (自动创建 PR → 合并 → 打 tag → 推送)
+	@./scripts/deploy.sh v$(VERSION)
