@@ -21,7 +21,7 @@ on:
 # 项目参数: 3 个 starcat-*-api 项目共用同一份 release.yml 模板
 # 同步修改规则见 supports/AGENTS.md: 3 项目任何 workflow 改动必须同步
 # - BINARY_NAME: 二进制输出名 (必须与 go.yml build -o 一致)
-# - ENTRY:      入口包路径 (sharing 用 ./cmd/server/, trending/weekly 用 .)
+# - ENTRY:      入口包路径 (trending 用 ./cmd/server/, trending/weekly 用 .)
 env:
   BINARY_NAME: starcat-trending-api
   ENTRY: ./cmd/server/
@@ -162,7 +162,7 @@ jobs:
       # 3. 下载所有 build job 上传的产物到 dist/
       #    merge-multiple: true 把所有 artifact 合并到同一目录
       - name: Download all binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
@@ -178,7 +178,7 @@ jobs:
       #    generate_release_notes: true 自动从 PR + commit 聚合 release notes
       #    files 模式 dist/* 会把 checksums.txt 也带上
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: ${{ steps.version.outputs.tag }}
