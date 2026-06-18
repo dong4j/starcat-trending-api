@@ -1,39 +1,17 @@
 # See https://fly.io/docs/app-guides/continuous-deployment-with-github-actions/
 
-# ===========================================
-# 触发条件: 监听 go.yml 完成后, 仅在 tag 推送触发的 go.yml 成功时部署
-# ===========================================
-# 设计理由 (2026-06-08 统一改):
-# - go.yml 必跑在前: gofmt + vet + build + test 全部通过才部署, 避免推坏代码到 prod
-# - 仅 tag 触发: 避免 push main 误触发部署, 让 scripts/deploy.sh 成为唯一受控发布入口
-# - 配合 scripts/deploy.sh 使用: tag 推送 → go.yml 跑 → fly-deploy + release 并行部署+发版
-# - workflow_dispatch 保留手动触发, 用于本地测试
-# ===========================================
 name: Fly Deploy
 on:
-  workflow_run:
-    workflows: ["Go"]
-    types: [completed]
-  workflow_dispatch:  # 手动触发 (Actions 页面), 便于本地测试
+  push:
+    branches:
+      - main
 jobs:
   deploy:
     name: Deploy app
     runs-on: ubuntu-latest
-    # 三种情况允许跑:
-    # 1. workflow_dispatch 手动触发
-    # 2. workflow_run 触发, go.yml 成功, head_branch 以 v 开头 (即 tag 推送)
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       startsWith(github.event.workflow_run.head_branch, 'v'))
-    concurrency: deploy-group    # 同一时间只允许一个部署任务, 避免竞态
+    concurrency: deploy-group    # optional: ensure only one action runs at a time
     steps:
-      # workflow_run 模式下必须显式 checkout 触发 go.yml 的那个 commit
-      # (默认 checkout 是当前 ref, 而非触发 workflow 的 commit, 错位会部署错代码)
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-          fetch-depth: 0
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - run: flyctl deploy --remote-only
         env:

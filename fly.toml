@@ -1,9 +1,7 @@
-# fly.toml app configuration file generated for starcat-trending-api on 2026-06-08T00:32:15+08:00
+# fly.toml app configuration file generated for starcat-trending-api on 2026-06-18T14:13:19+08:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
-# 与 starcat-sharing-api / starcat-weekly-api 保持一致的 Fly.io 部署配置
-# (端口、env、health check 等参照其他两个项目对齐)
 
 app = 'starcat-trending-api'
 primary_region = 'nrt'
@@ -15,11 +13,6 @@ primary_region = 'nrt'
   GOMAXPROCS = '1'
   PORT = '5002'
 
-# R-01 v1.2: 敏感配置迁到 fly secrets
-# STORE_FILE → fly secrets set STORE_FILE=/data/trending.db
-# API_KEYS  → fly secrets set API_KEYS=...
-# GITHUB_TOKENS → fly secrets set GITHUB_TOKENS=...
-
 [processes]
   app = './server'
 
@@ -30,9 +23,9 @@ primary_region = 'nrt'
 [http_service]
   internal_port = 5002
   force_https = true
-  auto_stop_machines = 'stop'
+  auto_stop_machines = 'off'
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ['app']
 
   [http_service.concurrency]
