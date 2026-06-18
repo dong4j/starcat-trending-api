@@ -142,6 +142,54 @@ func TestUpsertRepo_InsertAndUpdate(t *testing.T) {
 	}
 }
 
+// TestUpsertRepo_EmptyLanguageDoesNotOverwrite 验证 spider 解析失败写入空 language 时，
+// 不会冲掉 enricher 已补全的非空 language（2026-06-18 生产 bug 回归）。
+func TestUpsertRepo_EmptyLanguageDoesNotOverwrite(t *testing.T) {
+	s := newTestStore(t)
+
+	desc := "desc"
+	if err := s.UpsertRepo(model.TrendingRepo{
+		FullName: "owner/repo", Owner: "owner", Name: "repo",
+		DescText: &desc, Stars: 10, Forks: 1,
+		Language: ptrStr("Rust"), Change: 3, Since: "daily",
+		CapturedAt: time.Now(), IsAvailable: true,
+	}); err != nil {
+		t.Fatalf("first upsert: %v", err)
+	}
+
+	enrichedAt := time.Now()
+	if err := s.UpdateEnriched("owner/repo", "daily", model.TrendingRepo{
+		EnrichedAt: &enrichedAt,
+		Language:   ptrStr("Rust"),
+	}); err != nil {
+		t.Fatalf("UpdateEnriched: %v", err)
+	}
+
+	empty := ""
+	if err := s.UpsertRepo(model.TrendingRepo{
+		FullName: "owner/repo", Owner: "owner", Name: "repo",
+		DescText: &desc, Stars: 11, Forks: 1,
+		Language: &empty, Change: 4, Since: "daily",
+		CapturedAt: time.Now(), IsAvailable: true,
+	}); err != nil {
+		t.Fatalf("second upsert: %v", err)
+	}
+
+	repos, err := s.GetRepos("daily", "Rust", 10)
+	if err != nil {
+		t.Fatalf("GetRepos: %v", err)
+	}
+	if len(repos) != 1 {
+		t.Fatalf("want 1 repo under Rust, got %d", len(repos))
+	}
+	if repos[0].Language == nil || *repos[0].Language != "Rust" {
+		t.Errorf("language should stay Rust, got %v", repos[0].Language)
+	}
+	if repos[0].Change != 4 {
+		t.Errorf("change should update to 4, got %d", repos[0].Change)
+	}
+}
+
 // TestGetRepos_Filters 验证：
 //  1. since 不匹配的不返回
 //  2. lang 不匹配的不返回

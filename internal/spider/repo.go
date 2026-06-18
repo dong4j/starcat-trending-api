@@ -77,6 +77,9 @@ func (r *RepoSpider) Parse(html string) []RepoItem {
 		h2 := article.Find("h2")
 		repo := h2.Find("a").AttrOr("href", "")
 		item.Repo = strings.TrimPrefix(repo, "/")
+		if item.Repo == "" {
+			return
+		}
 
 		// 获取描述
 		var descParts []string
@@ -85,73 +88,46 @@ func (r *RepoSpider) Parse(html string) []RepoItem {
 		})
 		item.Desc = strings.TrimSpace(strings.Join(descParts, " "))
 
-		// 获取 stars, forks, lang, build_by, change
-		// footer 在第3个 div 中 (index 2)
-		footerDivs := article.Find("div")
-		if footerDivs.Length() < 3 {
-			return
+		// GitHub trending 页脚元数据行（2026-06-18 结构）：
+		// `<div class="f6 color-fg-muted mt-2">` 内含 language / stars / forks / change。
+		// 旧版用「article 第 3 个 div + 三层嵌套 span」解析 language，DOM 改版后
+		// 全部落空，spider 入库 language=""，进而冲掉 enricher 补全值（见 store UpsertRepo）。
+		metaRow := article.Find("div.f6.color-fg-muted").First()
+		if metaRow.Length() == 0 {
+			// 兜底：部分 A/B 页可能没有 f6 class，退到含 programmingLanguage 的容器
+			metaRow = article.Find(`span[itemprop="programmingLanguage"]`).First().Closest("div")
 		}
-		footer := footerDivs.Eq(2)
 
-		// 解析 stars 和 forks
-		footer.Find("div > a").Each(func(_ int, a *goquery.Selection) {
+		// 语言：GitHub 现用 schema.org microdata
+		if langText := strings.TrimSpace(article.Find(`span[itemprop="programmingLanguage"]`).First().Text()); langText != "" {
+			item.Lang = langText
+		}
+
+		// stars / forks：直接挂在 meta 行下的 <a href=".../stargazers|forks">
+		metaRow.Find("a").Each(func(_ int, a *goquery.Selection) {
 			href, _ := a.Attr("href")
 			text := strings.TrimSpace(a.Text())
-
-			if strings.HasSuffix(href, "/forks") {
+			switch {
+			case strings.HasSuffix(href, "/forks"):
 				item.Forks = utils.GetListNum([]string{text})
-			} else {
+			case strings.HasSuffix(href, "/stargazers"):
 				item.Stars = utils.GetListNum([]string{text})
 			}
 		})
 
-		// 解析语言
-		footer.Find("div > span").EachWithBreak(func(_ int, span *goquery.Selection) bool {
-			// 查找包含语言信息的 span (通常有3个 span 子元素)
-			spans := span.Find("span")
-			if spans.Length() >= 3 {
-				langText := spans.Eq(2).Text()
-				if langText != "" {
-					item.Lang = strings.TrimSpace(langText)
-					return false // 找到后停止遍历
-				}
-			}
-			return true
-		})
-
-		// 解析 build_by (构建者头像)
-		var buildByList []BuildBy
-		footer.Find("div > span").EachWithBreak(func(_ int, span *goquery.Selection) bool {
-			// 查找包含 a 标签的 span (构建者)
-			aTags := span.Find("a")
-			if aTags.Length() > 0 {
-				aTags.Each(func(_ int, a *goquery.Selection) {
-					img := a.Find("img")
-					if img.Length() > 0 {
-						avatar, _ := img.Attr("src")
-						href, _ := a.Attr("href")
-						buildByList = append(buildByList, BuildBy{
-							Avatar: avatar,
-							By:     href,
-						})
-					}
-				})
-				return false // 找到后停止遍历
-			}
-			return true
-		})
-		item.BuildBy = buildByList
-
-		// 解析 change (本周/日/月获得的星数)
-		footer.Find("div > span").EachWithBreak(func(_ int, span *goquery.Selection) bool {
-			// 查找包含 svg 标签的 span
-			if span.Find("svg").Length() > 0 {
-				text := strings.TrimSpace(span.Text())
+		// change：浮动在右侧的「NNN stars today / this week / this month」
+		article.Find("span").EachWithBreak(func(_ int, span *goquery.Selection) bool {
+			text := strings.TrimSpace(span.Text())
+			if strings.Contains(text, "stars today") ||
+				strings.Contains(text, "stars this week") ||
+				strings.Contains(text, "stars this month") {
 				item.Change = utils.GetListNum([]string{text})
 				return false
 			}
 			return true
 		})
+
+		// build_by：2026-06 起 trending 列表页已移除贡献者头像行；保留空切片即可。
 
 		items = append(items, item)
 	})

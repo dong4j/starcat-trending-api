@@ -7,6 +7,17 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Trending 侧栏全「未分类」+ repo 卡片无 language**（2026-06-18 生产 fly.dev 排查）。
+  - 根因 ①：GitHub trending 页 DOM 改版，旧 spider 用「第 3 个 div + 三层嵌套 span」解析 language，
+    现页使用 `span[itemprop="programmingLanguage"]`，导致 spider 入库 `language=""`。
+  - 根因 ②：`UpsertRepo` ON CONFLICT 无条件 `language = excluded.language`，每小时 cron 重爬
+    把 enricher 从 GitHub API 补全的语言盖回空串。
+  - 修复：`internal/spider/repo.go` 改用 microdata + `div.f6` 元数据行解析 stars/forks/change；
+    `internal/store/sqlite.go` 冲突更新改为 `COALESCE(NULLIF(excluded.language,''), …)`；
+    `internal/scheduler/cron.go` spider 空 language 写 NULL 而非 `""`。
+  - 单测：`spider/repo_test.go` fixture 回归 + `store_test.go::TestUpsertRepo_EmptyLanguageDoesNotOverwrite`。
+
 ### Changed
 - **`GET /api/v1/languages` 改造为基于 `trending_repos` 实际数据聚合**（2026-06-11 dong4j 反馈）。
   - 历史实现：返回 `trending_languages` 表（GitHub trending 页面爬虫快照，700+ 全量语言菜单），

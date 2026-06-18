@@ -229,6 +229,10 @@ func (sch *Scheduler) scrapeAndPersist(lang, since string) []string {
 		}
 
 		fullName := owner + "/" + name
+		var langPtr *string
+		if item.Lang != "" {
+			langPtr = &item.Lang
+		}
 		rec := model.TrendingRepo{
 			FullName:    fullName,
 			Owner:       owner,
@@ -236,7 +240,7 @@ func (sch *Scheduler) scrapeAndPersist(lang, since string) []string {
 			DescText:    &item.Desc,
 			Stars:       item.Stars,
 			Forks:       item.Forks,
-			Language:    &item.Lang,
+			Language:    langPtr,
 			Change:      item.Change,
 			BuildByJSON: bjJSON,
 			Since:       since,

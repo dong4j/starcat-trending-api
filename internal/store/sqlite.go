@@ -45,6 +45,12 @@ func NewSQLiteStore(dsn string) (*SQLiteStore, error) {
 }
 
 // UpsertRepo upsert 一条 trending repo 记录。
+//
+// language 更新策略（2026-06-18）：
+// spider 解析失败时会写入 ""；若 ON CONFLICT 无条件 `language = excluded.language`，
+// 每小时 cron 重爬会把 enricher 从 GitHub API 补全的语言盖回空串，客户端侧栏
+// 只剩「未分类」。因此冲突更新时用 COALESCE(NULLIF(excluded.language,''), …)
+// 保留已有非空 language，仅当 spider 本次解析到真实语言名时才覆盖。
 func (s *SQLiteStore) UpsertRepo(repo model.TrendingRepo) error {
 	now := time.Now().Format(time.RFC3339)
 	capturedAt := repo.CapturedAt.Format(time.RFC3339)
@@ -58,7 +64,7 @@ func (s *SQLiteStore) UpsertRepo(repo model.TrendingRepo) error {
 			desc_text = excluded.desc_text,
 			stars = excluded.stars,
 			forks = excluded.forks,
-			language = excluded.language,
+			language = COALESCE(NULLIF(excluded.language, ''), trending_repos.language),
 			change = excluded.change,
 			build_by_json = excluded.build_by_json,
 			captured_at = excluded.captured_at,
