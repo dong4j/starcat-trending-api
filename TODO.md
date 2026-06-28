@@ -36,4 +36,4 @@
 
 ## 低优
 
-- [ ] **部署阶段 1 周验收**(方案 §11.2):`fly logs` 无 panic、enricher 错误率 < 1%、Token Pool ≥ 1 alive、SQLite < 10MB/周、p95 < 200ms、鉴权失败 < 5%。
+- [ ] **部署阶段 1 周验收**
