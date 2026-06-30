@@ -37,12 +37,14 @@ import (
 
 // fakeStore 是 store.Store 的最小实现,只支持 GetRepos / GetAggregatedLanguages 的可观测调用。
 type fakeStore struct {
-	repos       []model.TrendingRepo
-	gotSince    string
-	gotLang     string
-	gotLimit    int
-	callCount   int
-	forceGetErr error
+	repos         []model.TrendingRepo
+	gotSince      string
+	gotLang       string
+	gotLimit      int
+	callCount     int
+	forceGetErr   error
+	counts        map[string]int
+	forceCountErr error
 
 	// GetAggregatedLanguages 用：fakeStore 本身就是 mock，按 fixture 直接返
 	aggregates        []model.LanguageAggregate
@@ -58,6 +60,16 @@ func (f *fakeStore) GetRepos(since, lang string, limit int) ([]model.TrendingRep
 		return nil, f.forceGetErr
 	}
 	return f.repos, nil
+}
+
+func (f *fakeStore) CountReposBySince() (map[string]int, error) {
+	if f.forceCountErr != nil {
+		return nil, f.forceCountErr
+	}
+	if f.counts != nil {
+		return f.counts, nil
+	}
+	return map[string]int{"daily": len(f.repos), "weekly": 0, "monthly": 0}, nil
 }
 
 // 其它方法不调,panic 提示
@@ -105,17 +117,17 @@ func makeRepo(name, lang string, stars int) model.TrendingRepo {
 	desc := "desc of " + name
 	enriched := time.Now()
 	return model.TrendingRepo{
-		FullName:   "owner/" + name,
-		Owner:      "owner",
-		Name:       name,
-		DescText:   &desc,
-		Stars:      stars,
-		Forks:      stars / 10,
-		Language:   langPtr,
-		Change:     1,
-		Since:      "daily",
-		CapturedAt: time.Now(),
-		EnrichedAt: &enriched,
+		FullName:    "owner/" + name,
+		Owner:       "owner",
+		Name:        name,
+		DescText:    &desc,
+		Stars:       stars,
+		Forks:       stars / 10,
+		Language:    langPtr,
+		Change:      1,
+		Since:       "daily",
+		CapturedAt:  time.Now(),
+		EnrichedAt:  &enriched,
 		IsAvailable: true,
 	}
 }
@@ -219,7 +231,7 @@ func TestRepos_InvalidSince(t *testing.T) {
 // TestRepos_SourceRejected 验证 source= 任何值都拒绝。
 func TestRepos_SourceRejected(t *testing.T) {
 	cases := []string{"github", "zread", "merged", ""} // 注意 "" 是默认值,不会拒绝
-	for _, src := range cases[:3] {                      // github / zread / merged
+	for _, src := range cases[:3] {                    // github / zread / merged
 		t.Run("source="+src, func(t *testing.T) {
 			f := &fakeStore{}
 			w := doReq(f, "source="+src)

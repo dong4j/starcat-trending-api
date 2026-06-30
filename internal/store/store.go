@@ -21,6 +21,12 @@ type Store interface {
 	// R-02 v2.1：删除 source 参数，trending-api 固定走 GitHub 单源。
 	GetRepos(since, lang string, limit int) ([]model.TrendingRepo, error)
 
+	// CountReposBySince 按 since 统计真实可见 repo 数量，不受列表接口 limit 影响。
+	//
+	// 口径与 GetRepos 保持一致：仅统计 is_available=1 且 enriched_at IS NOT NULL 的行。
+	// local admin 面板用它展示真实 daily / weekly / monthly 总数，避免把分页返回数误当总量。
+	CountReposBySince() (map[string]int, error)
+
 	// GetUnenrichedRepos 获取待 enrich 的 repo（按 priority desc）。
 	GetUnenrichedRepos(limit int) ([]model.TrendingRepo, error)
 

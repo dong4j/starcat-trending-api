@@ -49,7 +49,7 @@ func NewSQLiteStore(dsn string) (*SQLiteStore, error) {
 // language 更新策略（2026-06-18）：
 // spider 解析失败时会写入 ""；若 ON CONFLICT 无条件 `language = excluded.language`，
 // 每小时 cron 重爬会把 enricher 从 GitHub API 补全的语言盖回空串，客户端侧栏
-// 只剩「未分类」。因此冲突更新时用 COALESCE(NULLIF(excluded.language,''), …)
+// 只剩「未分类」。因此冲突更新时用 COALESCE(NULLIF(excluded.language, ''), …)
 // 保留已有非空 language，仅当 spider 本次解析到真实语言名时才覆盖。
 func (s *SQLiteStore) UpsertRepo(repo model.TrendingRepo) error {
 	now := time.Now().Format(time.RFC3339)
@@ -123,6 +123,40 @@ func (s *SQLiteStore) GetRepos(since, lang string, limit int) ([]model.TrendingR
 
 	return s.queryRepos(query, args...)
 }
+
+// CountReposBySince 返回 daily / weekly / monthly 三个桶的真实可见 repo 数。
+//
+// 必须绕过 GetRepos 的 LIMIT，因为统计面板需要的是 DB 里的总量，而不是当前页面
+// 拉取到的列表长度。WHERE 口径与 GetRepos 一致，确保用户看到的数量只包含客户端
+// 实际可展示的 enriched + available 记录。
+func (s *SQLiteStore) CountReposBySince() (map[string]int, error) {
+	rows, err := s.db.Query(`
+		SELECT since, COUNT(*)
+		FROM trending_repos
+		WHERE is_available = 1 AND enriched_at IS NOT NULL
+		GROUP BY since
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	counts := map[string]int{
+		"daily":   0,
+		"weekly":  0,
+		"monthly": 0,
+	}
+	for rows.Next() {
+		var since string
+		var count int
+		if err := rows.Scan(&since, &count); err != nil {
+			return nil, err
+		}
+		counts[since] = count
+	}
+	return counts, rows.Err()
+}
+
 // GetUnenrichedRepos 获取待 enrich 的 repo（按 priority desc）。
 func (s *SQLiteStore) GetUnenrichedRepos(limit int) ([]model.TrendingRepo, error) {
 	if limit <= 0 {
@@ -213,6 +247,7 @@ func (s *SQLiteStore) RecomputePriorities(since string) error {
 	_, err = s.db.Exec(`UPDATE trending_repos SET enrich_priority = 10 WHERE since = ? AND enrich_priority = 0 AND enriched_at IS NULL`, since)
 	return err
 }
+
 // UpsertLanguages 批量覆写语言列表。
 func (s *SQLiteStore) UpsertLanguages(langs []model.Language) error {
 	tx, err := s.db.Begin()
