@@ -137,7 +137,8 @@ func main() {
 	log.Printf("  POST /internal/sync/users    - Developers refresh (auth required)")
 	log.Printf("  POST /internal/enrich/force  - Force re-enrich all data (clear enriched_at + dispatch EnrichAll) (auth required)")
 	log.Printf("  GET  /healthz               - Health check (public)")
-	log.Fatal(http.ListenAndServe(":"+port, mux))
+	handler := middleware.CORS(mux)
+	log.Fatal(http.ListenAndServe(":"+port, handler))
 }
 
 func healthzHandler(w http.ResponseWriter, r *http.Request) {
