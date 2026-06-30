@@ -17,27 +17,27 @@ import (
 
 // githubRepoResponse 是 GET /repos/{o}/{r} 的完整响应。
 type githubRepoResponse struct {
-	ID            int64    `json:"id"`
-	FullName      string   `json:"full_name"`
-	Description   *string  `json:"description"`
-	Stargazers    int      `json:"stargazers_count"`
-	Forks         int      `json:"forks_count"`
-	Watchers      int      `json:"watchers_count"`
-	Subscribers   int      `json:"subscribers_count"`
-	Language      *string  `json:"language"`
-	Topics        []string `json:"topics"`
-	Homepage      *string  `json:"homepage"`
-	License       *struct {
+	ID          int64    `json:"id"`
+	FullName    string   `json:"full_name"`
+	Description *string  `json:"description"`
+	Stargazers  int      `json:"stargazers_count"`
+	Forks       int      `json:"forks_count"`
+	Watchers    int      `json:"watchers_count"`
+	Subscribers int      `json:"subscribers_count"`
+	Language    *string  `json:"language"`
+	Topics      []string `json:"topics"`
+	Homepage    *string  `json:"homepage"`
+	License     *struct {
 		SpdxID *string `json:"spdx_id"`
 	} `json:"license"`
-	Archived      bool    `json:"archived"`
-	Fork          bool    `json:"fork"`
-	Private       bool    `json:"private"`
-	DefaultBranch string  `json:"default_branch"`
-	OpenIssues    int     `json:"open_issues_count"`
-	PushedAt      string  `json:"pushed_at"`
-	UpdatedAt     string  `json:"updated_at"`
-	CreatedAt     string  `json:"created_at"`
+	Archived      bool   `json:"archived"`
+	Fork          bool   `json:"fork"`
+	Private       bool   `json:"private"`
+	DefaultBranch string `json:"default_branch"`
+	OpenIssues    int    `json:"open_issues_count"`
+	PushedAt      string `json:"pushed_at"`
+	UpdatedAt     string `json:"updated_at"`
+	CreatedAt     string `json:"created_at"`
 	Owner         *struct {
 		AvatarURL *string `json:"avatar_url"`
 	} `json:"owner"`
@@ -185,13 +185,7 @@ func (e *Enricher) EnrichOne(repo *model.TrendingRepo) error {
 
 		case 429, 403:
 			resp.Body.Close()
-			if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
-				s, _ := strconv.Atoi(retryAfter)
-				if s > 0 {
-					log.Printf("[enricher] 429, sleeping %ds", s)
-					time.Sleep(time.Duration(s) * time.Second)
-				}
-			}
+			e.pool.DisableUntil(token, retryUntil(resp, token.ResetAt), fmt.Sprintf("rate limited status %d", resp.StatusCode))
 			continue
 
 		case 502, 503:
@@ -207,6 +201,19 @@ func (e *Enricher) EnrichOne(repo *model.TrendingRepo) error {
 		}
 	}
 	return fmt.Errorf("enrichOne %s/%s failed after 3 attempts", owner, name)
+}
+
+func retryUntil(resp *http.Response, resetAt time.Time) time.Time {
+	until := resetAt
+	if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
+		if seconds, err := strconv.Atoi(retryAfter); err == nil && seconds > 0 {
+			retryAt := time.Now().Add(time.Duration(seconds) * time.Second)
+			if retryAt.After(until) {
+				until = retryAt
+			}
+		}
+	}
+	return until
 }
 
 // buildEnrichedRepo 将 GitHub API 响应映射到 TrendingRepo 字段。

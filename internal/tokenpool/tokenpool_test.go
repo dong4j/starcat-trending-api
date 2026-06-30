@@ -142,6 +142,24 @@ func TestPickBest_ExhaustedResetPassed(t *testing.T) {
 	}
 }
 
+func TestPickBest_DisabledUntilSkippedAndRecovered(t *testing.T) {
+	p := New([]string{"t1", "t2"})
+	p.tokens[0].Remaining = 100
+	p.tokens[1].Remaining = 50
+	p.DisableUntil(p.tokens[0], time.Now().Add(1*time.Hour), "test")
+
+	got := p.PickBest()
+	if got == nil || got.Value != "t2" {
+		t.Fatalf("disabled token should be skipped, got %#v", got)
+	}
+
+	p.tokens[0].DisabledUntil = time.Now().Add(-1 * time.Second)
+	got = p.PickBest()
+	if got == nil || got.Value != "t1" {
+		t.Fatalf("expired disabled token should recover, got %#v", got)
+	}
+}
+
 // TestUpdateFromResponse_RateLimitHeaders 验证响应头解析。
 func TestUpdateFromResponse_RateLimitHeaders(t *testing.T) {
 	p := New([]string{"tok"})
@@ -161,6 +179,25 @@ func TestUpdateFromResponse_RateLimitHeaders(t *testing.T) {
 	// ResetAt 应当接近 resetUnix(秒级精度)
 	if delta := tok.ResetAt.Unix() - resetUnix; delta < -2 || delta > 2 {
 		t.Errorf("ResetAt: want ~%d, got %d (delta=%d)", resetUnix, tok.ResetAt.Unix(), delta)
+	}
+}
+
+func TestUpdateFromResponse_RemainingZeroDisablesUntilReset(t *testing.T) {
+	p := New([]string{"tok-eeeeeeeeeeeeeeeeee", "tok-ffffffffffffffffff"})
+	tok := p.tokens[0]
+	resetAt := time.Now().Add(1 * time.Hour)
+	hdr := http.Header{}
+	hdr.Set("X-RateLimit-Remaining", "0")
+	hdr.Set("X-RateLimit-Reset", strconv.FormatInt(resetAt.Unix(), 10))
+
+	p.UpdateFromResponse(tok, &http.Response{StatusCode: 200, Header: hdr})
+
+	if tok.DisabledUntil.IsZero() {
+		t.Fatal("remaining=0 should temporarily disable token")
+	}
+	got := p.PickBest()
+	if got == nil || got.Value != p.tokens[1].Value {
+		t.Fatalf("disabled exhausted token should be skipped, got %#v", got)
 	}
 }
 
@@ -234,7 +271,7 @@ func TestEarliestReset(t *testing.T) {
 	p.tokens[0].ResetAt = time.Now().Add(2 * time.Hour)
 	p.tokens[1].ResetAt = time.Now().Add(30 * time.Minute) // 最早
 	p.tokens[2].ResetAt = time.Now().Add(5 * time.Hour)
-	p.tokens[2].Dead = true                                // dead 跳过
+	p.tokens[2].Dead = true // dead 跳过
 
 	got := p.EarliestReset()
 	if delta := time.Until(got); delta < 25*time.Minute || delta > 35*time.Minute {

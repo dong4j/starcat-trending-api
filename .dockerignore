@@ -6,6 +6,7 @@
 bin
 build
 dist
+server
 **/*.exe
 **/*.exe~
 **/*.dll

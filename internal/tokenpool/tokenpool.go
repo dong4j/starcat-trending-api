@@ -17,11 +17,14 @@ import (
 	"time"
 )
 
+const defaultTemporaryDisable = 60 * time.Second
+
 // TokenState 单个 PAT 的运行时状态。
 type TokenState struct {
 	Value               string
 	Remaining           int       // X-RateLimit-Remaining; -1 未知
 	ResetAt             time.Time // X-RateLimit-Reset
+	DisabledUntil       time.Time // 临时不可用，到 GitHub reset / Retry-After 后懒恢复
 	Dead                bool
 	LastUsedAt          time.Time
 	ConsecutiveFailures int
@@ -54,22 +57,27 @@ func New(tokenValues []string) *Pool {
 // PickBest Quota-aware 选 token。
 //
 // 算法：
-//  1. 过滤 dead 和已耗尽（remaining==0 且 reset 还没到）的 token
-//  2. 若有 remaining 未知（-1）的 token，从中随机选一个（让它去试一次拿到 quota）
-//  3. 否则选 remaining 最高的
+//  1. 懒恢复已过 DisabledUntil 的 token
+//  2. 过滤 dead、临时禁用和已耗尽（remaining==0 且 reset 还没到）的 token
+//  3. 若有 remaining 未知（-1）的 token，从中随机选一个（让它去试一次拿到 quota）
+//  4. 否则选 remaining 最高的
 //
 // 返回 nil 表示所有 token 都不可用，上层应该 sleep 到 EarliestReset。
 func (p *Pool) PickBest() *TokenState {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// 过滤 dead 和 exhausted
+	now := time.Now()
 	var alive []*TokenState
 	for _, t := range p.tokens {
 		if t.Dead {
 			continue
 		}
-		if t.Remaining == 0 && time.Now().Before(t.ResetAt) {
+		p.recoverIfReady(t, now)
+		if t.DisabledUntil.After(now) {
+			continue
+		}
+		if t.Remaining == 0 && now.Before(t.ResetAt) {
 			continue
 		}
 		alive = append(alive, t)
@@ -115,6 +123,9 @@ func (p *Pool) UpdateFromResponse(token *TokenState, resp *http.Response) {
 		token.ResetAt = time.Unix(ts, 0)
 	}
 	token.LastUsedAt = time.Now()
+	if token.Remaining == 0 && token.ResetAt.After(token.LastUsedAt) {
+		p.disableUntilLocked(token, token.ResetAt, "quota exhausted")
+	}
 
 	if resp.StatusCode == 401 {
 		token.Dead = true
@@ -131,6 +142,13 @@ func (p *Pool) UpdateFromResponse(token *TokenState, resp *http.Response) {
 	}
 }
 
+// DisableUntil 临时禁用 token。到期恢复不需要定时器，由 PickBest 懒执行。
+func (p *Pool) DisableUntil(token *TokenState, until time.Time, reason string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.disableUntilLocked(token, until, reason)
+}
+
 // EarliestReset 返回池中最早的 reset 时间。
 // 当 PickBest 返回 nil 时，上层 sleep 到此时间再 retry。
 func (p *Pool) EarliestReset() time.Time {
@@ -138,12 +156,21 @@ func (p *Pool) EarliestReset() time.Time {
 	defer p.mu.Unlock()
 
 	var earliest time.Time
+	now := time.Now()
 	for _, t := range p.tokens {
 		if t.Dead {
 			continue
 		}
-		if earliest.IsZero() || t.ResetAt.Before(earliest) {
-			earliest = t.ResetAt
+		p.recoverIfReady(t, now)
+		candidate := t.DisabledUntil
+		if candidate.IsZero() {
+			candidate = t.ResetAt
+		}
+		if candidate.IsZero() {
+			continue
+		}
+		if earliest.IsZero() || candidate.Before(earliest) {
+			earliest = candidate
 		}
 	}
 	return earliest
@@ -166,6 +193,30 @@ func (p *Pool) Stats() (alive, dead, totalRemaining int, nextReset time.Time) {
 	}
 	nextReset = p.earliestResetUnsafe()
 	return
+}
+
+func (p *Pool) disableUntilLocked(token *TokenState, until time.Time, reason string) {
+	if token == nil || token.Dead {
+		return
+	}
+	now := time.Now()
+	if until.IsZero() || !until.After(now) {
+		until = now.Add(defaultTemporaryDisable)
+	}
+	if until.After(token.DisabledUntil) {
+		token.DisabledUntil = until
+		log.Printf("[token-pool] %s disabled until %s (%s)", maskToken(token.Value), until.Format(time.RFC3339), reason)
+	}
+}
+
+func (p *Pool) recoverIfReady(token *TokenState, now time.Time) {
+	if token.DisabledUntil.IsZero() || token.DisabledUntil.After(now) {
+		return
+	}
+	token.DisabledUntil = time.Time{}
+	if token.ResetAt.IsZero() || !token.ResetAt.After(now) {
+		token.Remaining = -1
+	}
 }
 
 func (p *Pool) earliestResetUnsafe() time.Time {
