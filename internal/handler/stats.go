@@ -1,4 +1,4 @@
-// Package handler 中的 stats.go 实现 GET /api/v1/stats。
+// Package handler 中的 stats.go 实现 GET /internal/stats。
 //
 // 这个 endpoint 专给本地运维面板和轻量监控读取聚合数据。它不能复用
 // /api/v1/repos 的 meta.total，因为 repos endpoint 受 limit 钳制，meta.total
@@ -19,7 +19,7 @@ type TrendingStatsResponse struct {
 	Languages int            `json:"languages"`
 }
 
-// HandleStatsV1 GET /api/v1/stats - 返回真实 DB 聚合统计。
+// HandleStatsV1 GET /internal/stats - 返回真实 DB 聚合统计。
 func HandleStatsV1(s store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		repoCounts, err := s.CountReposBySince()
@@ -40,6 +40,7 @@ func HandleStatsV1(s store.Store) http.HandlerFunc {
 		if repoCounts["daily"] == 0 && repoCounts["weekly"] == 0 && repoCounts["monthly"] == 0 {
 			cacheStatus = "cold"
 		}
+		repoCounts["total"] = repoCounts["daily"] + repoCounts["weekly"] + repoCounts["monthly"]
 
 		writeJSONWithMeta(w, TrendingStatsResponse{
 			Repos:     repoCounts,

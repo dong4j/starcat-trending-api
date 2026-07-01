@@ -11,7 +11,7 @@ import (
 
 func doStatsReq(f *fakeStore) *httptest.ResponseRecorder {
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/api/v1/stats", nil)
+	r := httptest.NewRequest(http.MethodGet, "/internal/stats", nil)
 	HandleStatsV1(f)(w, r)
 	return w
 }
@@ -31,7 +31,7 @@ func TestStats_ReturnsRealRepoCountsAndLanguageCount(t *testing.T) {
 	}
 
 	env := decodeEnvelope[TrendingStatsResponse](t, w)
-	if env.Data.Repos["daily"] != 137 || env.Data.Repos["weekly"] != 82 || env.Data.Repos["monthly"] != 41 {
+	if env.Data.Repos["daily"] != 137 || env.Data.Repos["weekly"] != 82 || env.Data.Repos["monthly"] != 41 || env.Data.Repos["total"] != 260 {
 		t.Fatalf("repo counts mismatch: %+v", env.Data.Repos)
 	}
 	if env.Data.Languages != 2 {
