@@ -53,75 +53,77 @@ brew install --cask starcat
 > Starcat provides hosted defaults for normal users. This API is open source so advanced users can inspect it, run it locally, or deploy their own instance.
 <!-- starcat-promo:end -->
 
-GitHub Trending 数据 API，使用 Go 语言实现，输出统一 envelope 格式。
+GitHub Trending data API written in Go with a consistent response envelope.
 
-> trending-api **只走 GitHub 单源**。zread 周榜数据由 [`starcat-weekly-api`](../starcat-weekly-api/)
-> 的 `GET /api/v1/trending/zread` 提供，不在本服务暴露。
+> trending-api uses **GitHub as its only source**. [`starcat-weekly-api`](../starcat-weekly-api/)
+> provides zread weekly rankings through `GET /api/v1/trending/zread`; this service does not expose them.
 
-## 特性
+## Features
 
-- **三层架构**：spider（HTML 爬虫）→ store（SQLite）→ enricher（GitHub API 补全）
-- **Bearer Token 鉴权**：所有 `/api/v1/*` 和 `/internal/*` 端点强制鉴权
-- **Token Pool**：多 GitHub PAT 冗余 + Quota-aware 选择 + 故障切换
-- **Rate Limit 退避**：主动读 `X-RateLimit-Remaining` 头，低配额时自动减速
-- **优先级队列**：榜单前排优先 enrich（`enrich_priority DESC`）
-- **Admin endpoint**：手动触发同步（`/internal/sync/*`）
+- **Three-layer architecture**: spider (HTML crawler) → store (SQLite) → enricher (GitHub API metadata)
+- **Bearer Token authentication**: required for every `/api/v1/*` and `/internal/*` endpoint
+- **Token Pool**: multiple redundant GitHub PATs with quota-aware selection and failover
+- **Rate Limit backoff**: reads the `X-RateLimit-Remaining` header and slows down when quota is low
+- **Priority queue**: enriches top-ranked entries first (`enrich_priority DESC`)
+- **Admin endpoints**: manually trigger synchronization through `/internal/sync/*`
 
-## 快速开始
+## Quick Start
 
-### 环境要求
+### Requirements
 
 - Go 1.25+
 
-### 本地运行
+### Run Locally
 
 ```bash
 cp .env.example .env
-# 编辑 .env，填入 API_KEYS 和 GITHUB_TOKENS
+# Edit .env and set API_KEYS and GITHUB_TOKENS
 cd starcat-trending-api
 go run ./cmd/server/
 ```
 
-默认端口 `5002`。
+The default port is `5002`.
 
-### .env 配置
+### .env Configuration
 
-| 变量 | 说明 | 默认值 |
+| Variable | Description | Default |
 |------|------|--------|
-| `PORT` | 服务端口 | `5002` |
-| `STORE_FILE` | SQLite 数据库路径 | `./trending.db` |
-| `API_KEYS` | Bearer Token 白名单（逗号分隔） | 必填 |
-| `GITHUB_TOKENS` | GitHub PAT 池（逗号分隔） | 必填 |
+| `PORT` | Server port | `5002` |
+| `STORE_FILE` | SQLite database path | `./trending.db` |
+| `API_KEYS` | Comma-separated Bearer Token allowlist | Required |
+| `GITHUB_TOKENS` | Comma-separated GitHub PAT pool | Required |
 
-## API 接口
+## API Endpoints
 
-所有数据接口需要 `Authorization: Bearer <api-key>` 头。
+Every data endpoint requires an `Authorization: Bearer <api-key>` header.
 
-### `GET /api/v1/repos?lang=&since=&limit=`（需鉴权）
+### `GET /api/v1/repos?lang=&since=&limit=` (Authentication Required)
 
-返回 trending 仓库列表（含 GitHub API 补全字段）。
+Returns a list of trending repositories with fields enriched through the GitHub API.
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `lang` | string | — | 语言过滤（如 `Go`、`Python`） |
+| `lang` | string | — | Language filter, such as `Go` or `Python` |
 | `since` | string | `daily` | `daily` / `weekly` / `monthly` |
-| `limit` | int | 100 | 返回数量上限（最大 100） |
+| `limit` | int | 100 | Maximum number of results (up to 100) |
 
-**注意**：不接受 `source=*` 参数。trending-api 固定走 GitHub 单源；zread 数据请改用
-weekly-api `GET /api/v1/trending/zread`。
+**Note**: The endpoint does not accept a `source=*` parameter. trending-api uses GitHub as its only source.
+For zread data, use weekly-api `GET /api/v1/trending/zread`.
 
-响应示例见 `internal/model/repo_card.go` 中的 `StarcatRepoCardDTO`。
+See `StarcatRepoCardDTO` in `internal/model/repo_card.go` for the response format.
 
-### `GET /api/v1/languages`（需鉴权）
+### `GET /api/v1/languages` (Authentication Required)
 
-返回**基于 `trending_repos` 表实时聚合**的语言列表（含 repo 数量），仅包含**当前真有 repo
-的语言** + 一项 `__uncategorized__`（语言为 NULL/空的 repo 集合）。
+Returns a language list with repository counts, **aggregated from the `trending_repos` table at request
+time**. The list contains **only languages with current repositories** plus one `__uncategorized__`
+entry for repositories whose language is NULL or empty.
 
-> 历史 v1（2026-06-11 前）返回的是 GitHub trending 页面爬到的全量语言菜单（700+ 项，绝大多数
-> 在我们库里没数据），现已改为按实际数据聚合。响应字段在 `key` / `label` 上向后兼容，新增
-> `count` 字段。客户端 sidebar 直接用本接口驱动 trending 语言列表。
+> Before 2026-06-11, v1 returned the complete language menu scraped from GitHub Trending (more than
+> 700 entries, most with no data in our database). The endpoint now aggregates languages from available
+> data. The `key` and `label` response fields remain backward-compatible, and the response adds `count`.
+> The client sidebar uses this endpoint to populate its trending language list.
 
-响应示例：
+Example response:
 
 ```json
 {
@@ -140,67 +142,73 @@ weekly-api `GET /api/v1/trending/zread`。
 }
 ```
 
-字段说明：
+Field descriptions:
 
-- `key`：语言稳定标识（GitHub 规范化语言名，如 `Go` / `Python`）；
-  「未分类」恒为 `__uncategorized__`，可作为 `GET /api/v1/repos?lang=__uncategorized__` 查询参数
-- `label`：展示名（普通语言 = `key`；未分类 = `Uncategorized`，客户端可用自己的 i18n 覆盖）
-- `count`：该语言下当前 trending_repos 表中可用且已 enrich 的 repo 数量（三个 period 合并）
+- `key`: Stable language identifier using GitHub's normalized language name, such as `Go` or `Python`.
+  Uncategorized entries always use `__uncategorized__`, which can be passed to
+  `GET /api/v1/repos?lang=__uncategorized__`.
+- `label`: Display name. Regular languages use `key`; uncategorized entries use `Uncategorized`.
+  Clients may override the label through their own i18n.
+- `count`: Number of available, enriched repositories for the language in the current `trending_repos`
+  table, combined across all three periods.
 
-排序规则：未分类**永远排在最后**，其它语言按 `count DESC` + `key ASC` 兜底稳定。
+Sort order: Uncategorized entries **always appear last**. Other languages use `count DESC` with
+`key ASC` as a stable tiebreaker.
 
-#### `__uncategorized__` 哨兵在 `/api/v1/repos` 的语义
+#### Meaning of the `__uncategorized__` Sentinel in `/api/v1/repos`
 
-`GET /api/v1/repos?lang=__uncategorized__` 等价于查询 `language IS NULL OR language = ''`，
-返回所有 GitHub 没识别到主语言的 trending repo（spider/enricher 都补不全的 case）。
+`GET /api/v1/repos?lang=__uncategorized__` is equivalent to querying
+`language IS NULL OR language = ''`. It returns every trending repository for which GitHub did not
+identify a primary language and neither the spider nor the enricher could fill the value.
 
-### `GET /api/v1/users?lang=&since=&sponsorable=`（需鉴权）
+### `GET /api/v1/users?lang=&since=&sponsorable=` (Authentication Required)
 
-返回 trending 开发者列表。
+Returns a list of trending developers.
 
-### Admin Endpoints（需鉴权）
+### Admin Endpoints (Authentication Required)
 
-| 端点 | 说明 |
+| Endpoint | Description |
 |------|------|
-| `POST /internal/sync/repos` | 手动触发全量重爬 + enrich |
-| `POST /internal/sync/languages` | 手动刷新语言列表缓存 |
-| `POST /internal/sync/users` | 手动触发重爬开发者榜单 |
+| `POST /internal/sync/repos` | Manually trigger a full recrawl and enrichment |
+| `POST /internal/sync/languages` | Manually refresh the language list cache |
+| `POST /internal/sync/users` | Manually recrawl the developer rankings |
 
-### `GET /healthz`（公开）
+### `GET /healthz` (Public)
 
-健康检查，返回 `ok`。
+Health check that returns `ok`.
 
-## 鉴权
+## Authentication
 
-所有 `/api/v1/*` 和 `/internal/*` 端点需要 `Authorization: Bearer <api-key>` 头。
+Every `/api/v1/*` and `/internal/*` endpoint requires an
+`Authorization: Bearer <api-key>` header.
 
-生成新 key：
+Generate a new key:
 
 ```bash
 bash ../scripts/gen-api-key.sh
 ```
 
-## 项目结构
+## Project Structure
 
 ```
 starcat-trending-api/
-├── cmd/server/main.go              # 入口：装配三层 + scheduler + 鉴权
+├── cmd/server/main.go              # Entry point: wires the three layers, scheduler, and authentication
 ├── internal/
-│   ├── spider/                     # HTML 爬虫（goquery）
-│   ├── store/                      # SQLite 持久化
-│   ├── enricher/                   # GitHub API 字段补全 + Rate Limit
+│   ├── spider/                     # HTML crawler (goquery)
+│   ├── store/                      # SQLite persistence
+│   ├── enricher/                   # GitHub API field enrichment and rate limiting
 │   ├── tokenpool/                  # GitHub Token Pool
-│   ├── scheduler/                  # cron 定时调度
-│   ├── handler/                    # HTTP handler（v1 + admin）
-│   ├── middleware/                 # Bearer 鉴权中间件
-│   └── model/                      # 数据模型（DB + DTO + Envelope）
-├── .env.example                    # 配置模板
-├── fly.toml                        # Fly.io 部署配置
+│   ├── scheduler/                  # cron scheduling
+│   ├── handler/                    # HTTP handlers (v1 and admin)
+│   ├── middleware/                 # Bearer authentication middleware
+│   └── model/                      # Data models (DB, DTO, and Envelope)
+├── .env.example                    # Configuration template
+├── fly.toml                        # Fly.io deployment configuration
 ├── Dockerfile
 └── Makefile
 ```
 
-## 部署（Fly.io）
+## Deployment (Fly.io)
 
 ```bash
 fly secrets set \
@@ -212,10 +220,10 @@ fly secrets set \
 fly deploy -a starcat-trending-api
 ```
 
-## 技术选型
+## Technology
 
-- **net/http**：Go 标准库，无框架依赖
-- **goquery**：HTML 解析（类 jQuery 选择器）
-- **SQLite**：modernc.org/sqlite（纯 Go，无 CGO）
-- **cron**：robfig/cron/v3（定时调度）
-- **godotenv**：.env 文件加载
+- **net/http**: Go standard library with no framework dependency
+- **goquery**: HTML parsing with jQuery-like selectors
+- **SQLite**: modernc.org/sqlite (pure Go, no CGO)
+- **cron**: robfig/cron/v3 for scheduled jobs
+- **godotenv**: loads environment variables from `.env`
