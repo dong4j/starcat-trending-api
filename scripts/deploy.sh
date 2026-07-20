@@ -127,7 +127,7 @@ run_capture() {
         echo -e "${YELLOW}[DRY-RUN]${NC} $*" >&2
         # 假的 PR URL, PR 号 0 (明显是 fake), 让下游 PR_NUM=$(...|grep ...) 能跑通
         # PROJECT_NAME 在 step 2 之后才定义, 但 run_capture 只在 step 9 才被调用, 顺序安全
-        echo "https://github.com/dong4j/${PROJECT_NAME}/pull/0"
+        echo "https://github.com/starcat-app/${PROJECT_NAME}/pull/0"
     else
         "$@"
     fi
@@ -321,7 +321,7 @@ fi
 info "rebuilding dev branch from main..."
 run git branch dev main
 run git push origin dev
-ok "dev branch rebuilt on origin (https://github.com/dong4j/${PROJECT_NAME}/tree/dev)"
+ok "dev branch rebuilt on origin (https://github.com/starcat-app/${PROJECT_NAME}/tree/dev)"
 
 # =============================================================================
 # 12. 打 annotated tag (指向 merge commit)
@@ -354,9 +354,9 @@ echo -e "${GREEN}  $VERSION 部署完成 ✓${NC}"
 echo -e "${GREEN}=========================================${NC}"
 echo ""
 echo "  - PR:      $PR_URL"
-echo "  - Tag:     https://github.com/dong4j/${PROJECT_NAME}/releases/tag/$VERSION"
+echo "  - Tag:     https://github.com/starcat-app/${PROJECT_NAME}/releases/tag/$VERSION"
 echo "  - Fly:     https://fly.io/apps/${PROJECT_NAME}/healthz"
-echo "  - Actions: https://github.com/dong4j/${PROJECT_NAME}/actions"
+echo "  - Actions: https://github.com/starcat-app/${PROJECT_NAME}/actions"
 echo ""
 echo "  下一步: 等待 go.yml → fly-deploy + release 跑完 (通常 < 3 分钟)"
 
