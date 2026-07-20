@@ -12,11 +12,11 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"github.com/dong4j/starcat-trending-api/internal/enricher"
-	"github.com/dong4j/starcat-trending-api/internal/model"
-	"github.com/dong4j/starcat-trending-api/internal/notifier"
-	"github.com/dong4j/starcat-trending-api/internal/spider"
-	"github.com/dong4j/starcat-trending-api/internal/store"
+	"github.com/starcat-app/starcat-trending-api/internal/enricher"
+	"github.com/starcat-app/starcat-trending-api/internal/model"
+	"github.com/starcat-app/starcat-trending-api/internal/notifier"
+	"github.com/starcat-app/starcat-trending-api/internal/spider"
+	"github.com/starcat-app/starcat-trending-api/internal/store"
 )
 
 // CacheInvalidator 是 scheduler 完成某 since 桶同步后需要"主动失效内存缓存"的最小接口。

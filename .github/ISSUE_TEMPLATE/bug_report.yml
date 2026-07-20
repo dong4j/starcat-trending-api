@@ -8,7 +8,7 @@ body:
     attributes:
       value: |
         感谢你提交 Bug 报告！在填写前请确认：
-        - 已在 [Issues](https://github.com/dong4j/starcat-trending-api/issues) 中搜索过类似问题
+        - 已在 [Issues](https://github.com/starcat-app/starcat-trending-api/issues) 中搜索过类似问题
         - 使用的是最新版本
 
   - type: textarea

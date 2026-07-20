@@ -17,13 +17,13 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"github.com/dong4j/starcat-trending-api/internal/enricher"
-	"github.com/dong4j/starcat-trending-api/internal/handler"
-	"github.com/dong4j/starcat-trending-api/internal/middleware"
-	"github.com/dong4j/starcat-trending-api/internal/notifier"
-	"github.com/dong4j/starcat-trending-api/internal/scheduler"
-	"github.com/dong4j/starcat-trending-api/internal/store"
-	"github.com/dong4j/starcat-trending-api/internal/tokenpool"
+	"github.com/starcat-app/starcat-trending-api/internal/enricher"
+	"github.com/starcat-app/starcat-trending-api/internal/handler"
+	"github.com/starcat-app/starcat-trending-api/internal/middleware"
+	"github.com/starcat-app/starcat-trending-api/internal/notifier"
+	"github.com/starcat-app/starcat-trending-api/internal/scheduler"
+	"github.com/starcat-app/starcat-trending-api/internal/store"
+	"github.com/starcat-app/starcat-trending-api/internal/tokenpool"
 )
 
 func main() {

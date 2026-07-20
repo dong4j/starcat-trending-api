@@ -24,7 +24,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/dong4j/starcat-trending-api/internal/model"
+	"github.com/starcat-app/starcat-trending-api/internal/model"
 )
 
 // newTestStore 创建一个临时文件 SQLite + 已建 schema 的 store。

@@ -6,7 +6,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
-	"github.com/dong4j/starcat-trending-api/pkg/utils"
+	"github.com/starcat-app/starcat-trending-api/pkg/utils"
 )
 
 // RepoSpider 仓库 trending 爬虫

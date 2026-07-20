@@ -150,6 +150,6 @@ starcat-trending-api 首版（Go 重写 + GitHub Trending 单源）。
 - Go 1.x 重写：标准库 `net/http` + `goquery` HTML 解析
 - 旧端点 `GET /`、`GET /lang`、`GET /repo`、`GET /user`（已删除）
 
-[Unreleased]: https://github.com/dong4j/starcat-trending-api/compare/v0.1.1...HEAD
-[0.1.1]: https://github.com/dong4j/starcat-trending-api/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/dong4j/starcat-trending-api/releases/tag/v0.1.0
+[Unreleased]: https://github.com/starcat-app/starcat-trending-api/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/starcat-app/starcat-trending-api/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/starcat-app/starcat-trending-api/releases/tag/v0.1.0

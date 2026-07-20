@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dong4j/starcat-trending-api/internal/model"
-	"github.com/dong4j/starcat-trending-api/internal/store"
+	"github.com/starcat-app/starcat-trending-api/internal/model"
+	"github.com/starcat-app/starcat-trending-api/internal/store"
 )
 
 // TrendingStatsResponse 是 trending-api 的真实统计摘要。

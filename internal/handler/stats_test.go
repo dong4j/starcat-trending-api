@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/dong4j/starcat-trending-api/internal/model"
+	"github.com/starcat-app/starcat-trending-api/internal/model"
 )
 
 func doStatsReq(f *fakeStore) *httptest.ResponseRecorder {

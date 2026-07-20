@@ -44,7 +44,7 @@
 
 ## 执法
 
-可以通过 [GitHub Issues](https://github.com/dong4j/starcat-trending-api/issues) 联系项目团队来举报
+可以通过 [GitHub Issues](https://github.com/starcat-app/starcat-trending-api/issues) 联系项目团队来举报
 辱骂、骚扰或其他不可接受的行为。
 所有投诉将被审查和调查，并将根据情况作出必要的回应。
 项目团队有义务对举报者保密。

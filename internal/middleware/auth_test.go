@@ -18,7 +18,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/dong4j/starcat-trending-api/internal/model"
+	"github.com/starcat-app/starcat-trending-api/internal/model"
 )
 
 // newAuth 用一组 key 创建 BearerAuth,key 之间用 \| 分隔便于测试。

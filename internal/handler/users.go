@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dong4j/starcat-trending-api/internal/model"
-	"github.com/dong4j/starcat-trending-api/internal/spider"
+	"github.com/starcat-app/starcat-trending-api/internal/model"
+	"github.com/starcat-app/starcat-trending-api/internal/spider"
 )
 
 // HandleUsersV1 GET /api/v1/users - 返回 trending 开发者列表。

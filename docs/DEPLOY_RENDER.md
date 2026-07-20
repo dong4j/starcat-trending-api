@@ -14,7 +14,7 @@
 
 1. 登录 [Render Dashboard](https://dashboard.render.com/)
 2. 点击 **New** → **Blueprint**
-3. 连接你的 GitHub 仓库 `dong4j/starcat-trending-api`
+3. 连接你的 GitHub 仓库 `starcat-app/starcat-trending-api`
 4. Render 会自动检测 `render.yaml` 并创建服务
 5. 点击 **Apply** 开始部署
 

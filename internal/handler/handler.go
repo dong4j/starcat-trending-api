@@ -8,7 +8,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/dong4j/starcat-trending-api/internal/model"
+	"github.com/starcat-app/starcat-trending-api/internal/model"
 )
 
 // writeJSON 将任意类型包装成 envelope 写入 200 响应。

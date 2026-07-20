@@ -13,7 +13,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/dong4j/starcat-trending-api/internal/model"
+	"github.com/starcat-app/starcat-trending-api/internal/model"
 )
 
 func doLanguagesReq(s *fakeStore) *httptest.ResponseRecorder {

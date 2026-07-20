@@ -31,8 +31,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dong4j/starcat-trending-api/internal/model"
-	"github.com/dong4j/starcat-trending-api/internal/store"
+	"github.com/starcat-app/starcat-trending-api/internal/model"
+	"github.com/starcat-app/starcat-trending-api/internal/store"
 )
 
 // fakeStore 是 store.Store 的最小实现,只支持 GetRepos / GetAggregatedLanguages 的可观测调用。

@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dong4j/starcat-trending-api/internal/model"
-	"github.com/dong4j/starcat-trending-api/internal/store"
+	"github.com/starcat-app/starcat-trending-api/internal/model"
+	"github.com/starcat-app/starcat-trending-api/internal/store"
 )
 
 // HandleReposV1 GET /api/v1/repos - 返回 GitHub trending repo 卡片列表。
@@ -61,7 +61,7 @@ func HandleReposV1(s store.Store, cache *TrendingCache) http.HandlerFunc {
 					"param":   "source",
 					"got":     src,
 					"allowed": []string{"(none — trending-api is github-only)"},
-					"see":     "https://github.com/dong4j/starcat-weekly-api (GET /api/v1/trending/zread)",
+					"see":     "https://github.com/starcat-app/starcat-weekly-api (GET /api/v1/trending/zread)",
 				})
 			return
 		}

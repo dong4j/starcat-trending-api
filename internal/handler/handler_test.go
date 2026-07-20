@@ -17,7 +17,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/dong4j/starcat-trending-api/internal/model"
+	"github.com/starcat-app/starcat-trending-api/internal/model"
 )
 
 // TestWriteJSON_NilMeta 验证 meta=nil 时不输出 meta 字段。

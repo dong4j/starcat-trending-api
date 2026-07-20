@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dong4j/starcat-trending-api/internal/store"
+	"github.com/starcat-app/starcat-trending-api/internal/store"
 )
 
 // TestNewEnrichQueue_DefaultWorkerCount 验证 workerCnt <= 0 走默认 2。

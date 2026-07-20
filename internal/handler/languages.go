@@ -15,8 +15,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dong4j/starcat-trending-api/internal/model"
-	"github.com/dong4j/starcat-trending-api/internal/store"
+	"github.com/starcat-app/starcat-trending-api/internal/model"
+	"github.com/starcat-app/starcat-trending-api/internal/store"
 )
 
 // HandleLanguagesV1 GET /api/v1/languages - 返回基于 trending_repos 聚合的语言列表。

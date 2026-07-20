@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dong4j/starcat-trending-api/internal/enricher"
-	"github.com/dong4j/starcat-trending-api/internal/scheduler"
-	"github.com/dong4j/starcat-trending-api/internal/store"
+	"github.com/starcat-app/starcat-trending-api/internal/enricher"
+	"github.com/starcat-app/starcat-trending-api/internal/scheduler"
+	"github.com/starcat-app/starcat-trending-api/internal/store"
 )
 
 // HandleAdminSyncRepos POST /internal/sync/repos - 手动触发全量同步。

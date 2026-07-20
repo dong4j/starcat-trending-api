@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dong4j/starcat-trending-api/internal/model"
-	"github.com/dong4j/starcat-trending-api/internal/store"
-	"github.com/dong4j/starcat-trending-api/internal/tokenpool"
+	"github.com/starcat-app/starcat-trending-api/internal/model"
+	"github.com/starcat-app/starcat-trending-api/internal/store"
+	"github.com/starcat-app/starcat-trending-api/internal/tokenpool"
 )
 
 // githubRepoResponse 是 GET /repos/{o}/{r} 的完整响应。

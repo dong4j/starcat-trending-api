@@ -1,4 +1,4 @@
-module github.com/dong4j/starcat-trending-api
+module github.com/starcat-app/starcat-trending-api
 
 go 1.25.0
 

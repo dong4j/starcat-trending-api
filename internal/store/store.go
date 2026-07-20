@@ -6,7 +6,7 @@
 package store
 
 import (
-	"github.com/dong4j/starcat-trending-api/internal/model"
+	"github.com/starcat-app/starcat-trending-api/internal/model"
 )
 
 // Store 定义 trending 数据访问接口。
