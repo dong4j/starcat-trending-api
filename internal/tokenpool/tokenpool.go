@@ -1,11 +1,10 @@
 // Package tokenpool 提供 GitHub PAT 多 token 池管理。
 //
 // R-01 v1.2: Quota-aware 选择 + 401/5xx 死 token 检测。
-// 与 trending byte-level 一致（详见 supports/docs/R-01-总体设计.md §3.7 + §4.1）。
+// 与 trending / weekly / sharing byte-level 一致（详见 supports/docs/R-01-总体设计.md §3.7 + §4.1）。
 //
-// ⚠️ 跨项目共享代码同步约定：本文件必须在 trending / weekly 两个 API
-// 中 byte-level 一致（仅 package import 路径不同），任何修改都必须同时同步 2 份。
-// sharing 不调 GitHub API，不需要本包。
+// ⚠️ 跨项目共享代码同步约定：本文件必须在 trending / weekly / sharing 三个
+// API 中 byte-level 一致，任何修改都必须同时同步 3 份。
 package tokenpool
 
 import (
