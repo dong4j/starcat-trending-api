@@ -1,13 +1,15 @@
 // Package model 定义 StarcatRepoCardDTO 统一卡片结构。
 //
 // R-01 v1.2: 字段严格分两层 —
-//   核心字段（顶层）: GitHub /repos/{o}/{r} 原生语义
-//   扩展段（嵌套子对象）: trending / weekly / sharing 场景发现型语义
+//
+//	核心字段（顶层）: GitHub /repos/{o}/{r} 原生语义
+//	扩展段（嵌套子对象）: trending / weekly / sharing 场景发现型语义
 //
 // 硬边界规则（同时刻在 supports/docs/R-01-总体设计.md §3.9）:
-//   红线1: 非 Repo metadata 字段不能放顶层
-//   红线2: 不能把扩展段字段提升到顶层
-//   红线3: 不能在扩展段塞非本场景语义的字段
+//
+//	红线1: 非 Repo metadata 字段不能放顶层
+//	红线2: 不能把扩展段字段提升到顶层
+//	红线3: 不能在扩展段塞非本场景语义的字段
 package model
 
 // StarcatRepoCardDTO 统一卡片数据，所有 /api/v1/repos /api/v1/projects 共用。
@@ -47,6 +49,7 @@ type TrendingExtension struct {
 	Change       int                   `json:"change"`
 	Contributors []TrendingContributor `json:"contributors"`
 }
+
 // TrendingContributor 贡献者简要信息。
 type TrendingContributor struct {
 	Avatar string `json:"avatar"`

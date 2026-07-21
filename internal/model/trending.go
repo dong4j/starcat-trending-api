@@ -46,6 +46,7 @@ type TrendingRepo struct {
 	IsAvailable    bool
 	EnrichPriority int
 }
+
 // Language 语言列表项。
 type Language struct {
 	Key   string `json:"key"`
@@ -54,7 +55,7 @@ type Language struct {
 
 // UncategorizedLanguageKey 是「未分类」语言的哨兵 key。
 //
-// 用途：trending_repos.language 为 NULL / '' 的 repo 在聚合接口里归为这一项，
+// 用途：trending_repos.language 为 NULL / 空字符串的 repo 在聚合接口里归为这一项，
 // 客户端 sidebar 也用这个值作为筛选 key（详见 GET /api/v1/repos?lang=__uncategorized__）。
 //
 // 选用双下划线包裹的字符串避免与任何真实语言名（如 "C" / "Go" / "Rust"）冲突；

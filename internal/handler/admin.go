@@ -72,7 +72,7 @@ func HandleAdminSyncLanguages(sch *scheduler.Scheduler) http.HandlerFunc {
 //     （stars / forks / change / language），description / license / topics 等
 //     enricher 补全字段会瞬时为空，UI 会有轻微抖动；这是预期 tradeoff
 //   - 调用方式（admin curl）：
-//       curl -X POST -H "Authorization: Bearer $KEY" http://127.0.0.1:5002/internal/enrich/force
+//     curl -X POST -H "Authorization: Bearer $KEY" http://127.0.0.1:5002/internal/enrich/force
 func HandleEnrichForce(s store.Store, enc *enricher.Enricher) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		taskID := fmt.Sprintf("task-%s-enrich-force-%d", time.Now().Format("2006-01-02T15:04:05Z"), time.Now().UnixNano()%1000)

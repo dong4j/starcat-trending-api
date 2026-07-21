@@ -8,7 +8,7 @@
 //     · daily   → 1h （cron `7 * * * *` 每小时第 7 分跑）
 //     · weekly  → 6h （cron `13 */6 * * *` 每 6h 第 13 分跑）
 //     · monthly → 24h（cron `19 5 */2 * *` 每 2 天 05:19 跑，但 24h cap 比 48h 服务重启安全
-//       且 monthly 数据变化慢）
+//     且 monthly 数据变化慢）
 //   - 主动 Invalidate：scheduler 完成 syncDaily / syncWeekly / syncMonthly 后调
 //     `Invalidate(since)` 清掉对应桶下所有 key，保证客户端下次请求 100% 拿到新数据
 //     （不等 TTL 自然过期）。Invalidate 走 scheduler.CacheInvalidator 接口注入，

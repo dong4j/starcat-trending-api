@@ -16,8 +16,11 @@ jobs:
   docker:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
-    # 仅在 push 到 main / 打 tag / 手动触发时推送镜像
-    # PR 触发时只构建验证, 不推送
+    # workflow_run 在 CI 失败和 PR 场景也会触发；只允许成功的 push 或人工触发推送镜像。
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
     permissions:
       contents: read
       packages: write
@@ -26,6 +29,10 @@ jobs:
       # 1. 拉取代码
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # workflow_run 默认会 checkout 当前 main，必须固定到已通过 CI 的准确提交。
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
 
       # 2. 设置 Docker Buildx (用于多架构构建)
       - name: Set up Docker Buildx
@@ -33,7 +40,6 @@ jobs:
 
       # 3. 登录 GitHub Container Registry
       - name: Login to GitHub Container Registry
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -60,7 +66,7 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha

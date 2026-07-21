@@ -10,9 +10,19 @@ on:
     # tag 推送时也触发 (发版后再次验证 release 包能编译)
     # 配合 scripts/deploy.sh: tag 推送后自动跑一次 CI
     tags: ['v*']
+    paths-ignore:
+      - '**/*.md'
+      - 'LICENSE'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
   # 收到指向 main / master 的 PR 时触发
   pull_request:
     branches: [main, master]
+    paths-ignore:
+      - '**/*.md'
+      - 'LICENSE'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
   # 支持手动触发 (Actions 页面)
   workflow_dispatch:
 

@@ -49,7 +49,7 @@ func NewSQLiteStore(dsn string) (*SQLiteStore, error) {
 // language 更新策略（2026-06-18）：
 // spider 解析失败时会写入 ""；若 ON CONFLICT 无条件 `language = excluded.language`，
 // 每小时 cron 重爬会把 enricher 从 GitHub API 补全的语言盖回空串，客户端侧栏
-// 只剩「未分类」。因此冲突更新时用 COALESCE(NULLIF(excluded.language, ''), …)
+// 只剩「未分类」。因此冲突更新时先用 NULLIF 把空字符串转为 NULL，再交给 COALESCE。
 // 保留已有非空 language，仅当 spider 本次解析到真实语言名时才覆盖。
 func (s *SQLiteStore) UpsertRepo(repo model.TrendingRepo) error {
 	now := time.Now().Format(time.RFC3339)
@@ -88,7 +88,8 @@ func (s *SQLiteStore) UpsertRepo(repo model.TrendingRepo) error {
 // `lang` 参数三种语义：
 //   - 空字符串：不按语言过滤
 //   - `model.UncategorizedLanguageKey`（即 `"__uncategorized__"`）：返回 `language IS NULL OR
-//     language = ''` 的行（与 `GetAggregatedLanguages` 的「未分类」桶口径完全一致）
+//   - `model.UncategorizedLanguageKey`：返回 language 为 NULL 或空字符串的行
+//     （与 `GetAggregatedLanguages` 的「未分类」桶口径完全一致）
 //   - 其它值：按 `language = ?` 严格等值过滤
 //
 // **不**对 lang 做 case-insensitive 匹配——后端 enricher 已经把 GitHub 返回的语言名规范化
@@ -300,7 +301,7 @@ func (s *SQLiteStore) GetLanguages() ([]model.Language, error) {
 // GetAggregatedLanguages 基于 trending_repos 实际数据聚合语言列表。
 //
 // 实现要点：
-//  1. `COALESCE(NULLIF(language, ''), '__uncategorized__')` 把 NULL / 空串都归一到哨兵 key
+//  1. 先用 NULLIF 把空字符串转为 NULL，再由 COALESCE 把所有 NULL 归一到哨兵 key
 //  2. 仅统计 `is_available = 1 AND enriched_at IS NOT NULL`，与 GetRepos 可见性一致
 //  3. 排序（dong4j 2026-06-16 调整）：先按 `is_uncategorized DESC`（**未分类排第 1 位**），
 //     再按 `cnt DESC`，最后按 key ASC 兜底稳定。客户端 sidebar / picker 会在前面 prepend
@@ -311,8 +312,8 @@ func (s *SQLiteStore) GetLanguages() ([]model.Language, error) {
 //
 // 关键约束（已踩过的坑）：
 //   - 不要直接 `GROUP BY language` 然后 if NULL 转 key——SQLite 在 GROUP BY 阶段就会把 NULL
-//     和 '' 分到两个 group 里（NULL 走默认 NULL 比较），需要 COALESCE 在 GROUP BY 之前归一
-//   - `NULLIF(language, '')` 把空串转 NULL，再 COALESCE 把所有 NULL 转哨兵——两步合一缺一不可
+//     和空字符串分到两个 group 里（NULL 走默认 NULL 比较），需要 COALESCE 在 GROUP BY 之前归一
+//   - NULLIF 把空字符串转 NULL，再由 COALESCE 把所有 NULL 转哨兵——两步合一缺一不可
 //   - 不在 SQL 里写死哨兵字符串，从 Go 的 `model.UncategorizedLanguageKey` 注入，
 //     避免后端 const 改了 SQL 漏改
 func (s *SQLiteStore) GetAggregatedLanguages() ([]model.LanguageAggregate, error) {

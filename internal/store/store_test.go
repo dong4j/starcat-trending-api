@@ -31,10 +31,10 @@ import (
 //
 // 为什么不用 `:memory:` ?
 //
-// 	modernc.org/sqlite 的 in-memory 模式在 sql.Open("sqlite", ":memory:") 下，
-// 	每次得到的 db handle 是各自独立连接。Store 内部用 MaxOpenConns(1) + 独立 db 实例
-// 	能跑通测试，但共享 :memory: 模式需要带 cache=shared + 名字，多线程下行为不稳。
-// 	为了简单可靠，统一用 t.TempDir() 起一个 *.db 文件，测试结束自动清理。
+//	modernc.org/sqlite 的 in-memory 模式在 sql.Open("sqlite", ":memory:") 下，
+//	每次得到的 db handle 是各自独立连接。Store 内部用 MaxOpenConns(1) + 独立 db 实例
+//	能跑通测试，但共享 :memory: 模式需要带 cache=shared + 名字，多线程下行为不稳。
+//	为了简单可靠，统一用 t.TempDir() 起一个 *.db 文件，测试结束自动清理。
 func newTestStore(t *testing.T) *SQLiteStore {
 	t.Helper()
 	dsn := filepath.Join(t.TempDir(), "trending_test.db")
@@ -497,9 +497,9 @@ func TestGetAggregatedLanguages_BasicGrouping(t *testing.T) {
 		{"a/py1", ptrStr("Python"), true, true, "daily"},
 		{"a/py2", ptrStr("Python"), true, true, "weekly"},
 		{"a/rs1", ptrStr("Rust"), true, true, "daily"},
-		{"a/un1", nil, true, true, "daily"},          // NULL
-		{"a/un2", &emptyStr, true, true, "weekly"},   // 空串
-		{"a/un3", nil, false, true, "daily"},         // 未 enrich → 不计
+		{"a/un1", nil, true, true, "daily"},             // NULL
+		{"a/un2", &emptyStr, true, true, "weekly"},      // 空串
+		{"a/un3", nil, false, true, "daily"},            // 未 enrich → 不计
 		{"a/un4", ptrStr("Java"), true, false, "daily"}, // unavailable → 不计
 	}
 	for _, sd := range seeds {
@@ -623,7 +623,7 @@ func TestGetAggregatedLanguages_OnlyUncategorized(t *testing.T) {
 	}
 }
 
-// TestGetRepos_UncategorizedSentinel 验证 lang=__uncategorized__ 触发 NULL/'' 过滤。
+// TestGetRepos_UncategorizedSentinel 验证 lang=__uncategorized__ 触发 NULL / 空字符串过滤。
 func TestGetRepos_UncategorizedSentinel(t *testing.T) {
 	s := newTestStore(t)
 	now := time.Now()

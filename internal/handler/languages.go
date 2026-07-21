@@ -4,7 +4,7 @@
 //   - v1（R-01 v1.2）：返回 GitHub trending 页面爬虫快照（trending_languages 表，700+ 语言）
 //     —— 客户端不用，因为绝大多数语言下没有任何 repo
 //   - v2（当前）：改用 store.GetAggregatedLanguages()，**基于 trending_repos 实际数据聚合**，
-//     返回 [{key, label, count}]，含一项 `__uncategorized__`（language IS NULL OR ''）。
+//     返回 [{key, label, count}]，含一项 `__uncategorized__`（language 为 NULL 或空字符串）。
 //     客户端 sidebar 改用本接口驱动语言列表
 //
 // 兼容性：响应类型从 `[]Language` 变成 `[]LanguageAggregate`（多了 count 字段，

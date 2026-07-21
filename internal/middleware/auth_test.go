@@ -92,10 +92,10 @@ func TestAuth_MissingHeader(t *testing.T) {
 func TestAuth_WrongPrefix(t *testing.T) {
 	a := newAuth(t, "valid-key-1234567890")
 	cases := []string{
-		"Basic dXNlcjpwYXNz",                   // 错的 scheme
-		"Token valid-key-1234567890",           // Token 而不是 Bearer
-		"Bearer",                               // 缺 token
-		"bearer valid-key-1234567890",          // 小写 bearer,严格匹配
+		"Basic dXNlcjpwYXNz",          // 错的 scheme
+		"Token valid-key-1234567890",  // Token 而不是 Bearer
+		"Bearer",                      // 缺 token
+		"bearer valid-key-1234567890", // 小写 bearer,严格匹配
 	}
 	for _, header := range cases {
 		t.Run(header, func(t *testing.T) {
