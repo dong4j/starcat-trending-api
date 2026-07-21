@@ -1,8 +1,8 @@
-// Package version 提供当前服务的语义化版本号常量。
-//
-// 版本号在每次发版时手工更新 (v1.0.0, v1.1.0 ...),
-// 运行时通过 version.Version 读取, 可用于 /healthz、/version 接口或启动日志。
+// Package version 暴露服务标识和构建时注入的版本号。
 package version
 
-// Version 当前服务的语义化版本号, 遵循 https://semver.org/lang/zh-CN/
-const Version = "1.0.0"
+const Service = "trending"
+
+// Version 必须保持为变量，发布流水线通过 go build -ldflags -X 注入 Git tag 对应版本。
+// 本地直接运行时保留开发版本，避免把某次历史发布号误报为当前构建版本。
+var Version = "0.0.0-dev"

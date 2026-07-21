@@ -12,7 +12,7 @@
 //
 // 行为：
 //   - GET /api/v1/ping，带 Bearer Auth（由 middleware 保护）
-//   - 鉴权通过 → 200 + envelope { data: { service, ok: true } }
+//   - 鉴权通过 → 200 + envelope { data: { service, version, ok: true } }
 //   - 鉴权失败 → 401（由 middleware 写）
 //   - 服务故障 → 5xx（一般不会，本 handler 几乎不可能失败）
 //
@@ -30,17 +30,18 @@ import (
 // 用 inline 类型避免污染 model 包；service 字段便于客户端日志看到具体服务名。
 type pingResponse struct {
 	Service string `json:"service"`
+	Version string `json:"version"`
 	OK      bool   `json:"ok"`
 }
 
 // HandlePingV1 暴露 GET /api/v1/ping，专给 Starcat 客户端「测试连接」按钮用。
 //
-// service 参数：服务标识（如 "trending" / "weekly" / "sharing" / "wiki"），
-// 写入 response 让客户端在日志 / 调试时能看到「我连到的是哪个服务」。
-func HandlePingV1(service string) http.HandlerFunc {
+// service 参数标识当前服务；serviceVersion 来自构建时注入的 Git tag 版本。
+func HandlePingV1(service, serviceVersion string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, pingResponse{
 			Service: service,
+			Version: serviceVersion,
 			OK:      true,
 		})
 	}

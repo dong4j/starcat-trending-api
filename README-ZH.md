@@ -97,6 +97,14 @@ go run ./cmd/server/
 
 所有数据接口需要 `Authorization: Bearer <api-key>` 头。
 
+### `GET /api/v1/ping`（需鉴权）
+
+返回服务标识，以及由发布 tag 注入的构建版本：
+
+```json
+{"schema_version":1,"data":{"service":"trending","version":"1.2.3","ok":true}}
+```
+
 ### `GET /api/v1/repos?lang=&since=&limit=`（需鉴权）
 
 返回 trending 仓库列表（含 GitHub API 补全字段）。

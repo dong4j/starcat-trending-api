@@ -2,7 +2,7 @@
 //
 // 覆盖 R-03（2026-06-11）新增的 /api/v1/ping 端点：
 //  1. handler 返回 200 + Content-Type JSON
-//  2. envelope 结构正确：schema_version=1，data.service=入参，data.ok=true
+//  2. envelope 结构正确：schema_version=1，data.service/version=入参，data.ok=true
 //  3. 不携带 meta 字段（omitempty 生效）
 //  4. method 默认走 GET 即可（mux 路由匹配由 main.go 装配）
 //
@@ -21,7 +21,7 @@ import (
 
 // TestHandlePingV1_OK 验证返回 200 + 正确 envelope。
 func TestHandlePingV1_OK(t *testing.T) {
-	h := HandlePingV1("trending")
+	h := HandlePingV1("trending", "1.2.3")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/ping", nil)
 	w := httptest.NewRecorder()
@@ -37,6 +37,7 @@ func TestHandlePingV1_OK(t *testing.T) {
 	// 用 anonymous struct 解码 envelope.data —— 比额外引入 PingResponse 类型简洁。
 	type pingData struct {
 		Service string `json:"service"`
+		Version string `json:"version"`
 		OK      bool   `json:"ok"`
 	}
 	var env model.Envelope[pingData]
@@ -49,6 +50,9 @@ func TestHandlePingV1_OK(t *testing.T) {
 	}
 	if env.Data.Service != "trending" {
 		t.Errorf("data.service: want 'trending', got %q", env.Data.Service)
+	}
+	if env.Data.Version != "1.2.3" {
+		t.Errorf("data.version: want '1.2.3', got %q", env.Data.Version)
 	}
 	if !env.Data.OK {
 		t.Errorf("data.ok: want true, got false")
@@ -64,13 +68,14 @@ func TestHandlePingV1_ServiceNamePassthrough(t *testing.T) {
 	cases := []string{"trending", "weekly", "sharing", "wiki", "custom-fork"}
 	for _, name := range cases {
 		t.Run(name, func(t *testing.T) {
-			h := HandlePingV1(name)
+			h := HandlePingV1(name, "9.8.7")
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/ping", nil)
 			w := httptest.NewRecorder()
 			h.ServeHTTP(w, req)
 
 			type pingData struct {
 				Service string `json:"service"`
+				Version string `json:"version"`
 				OK      bool   `json:"ok"`
 			}
 			var env model.Envelope[pingData]
@@ -79,6 +84,9 @@ func TestHandlePingV1_ServiceNamePassthrough(t *testing.T) {
 			}
 			if env.Data.Service != name {
 				t.Errorf("service: want %q, got %q", name, env.Data.Service)
+			}
+			if env.Data.Version != "9.8.7" {
+				t.Errorf("version: want '9.8.7', got %q", env.Data.Version)
 			}
 		})
 	}

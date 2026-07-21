@@ -24,6 +24,7 @@ import (
 	"github.com/starcat-app/starcat-trending-api/internal/scheduler"
 	"github.com/starcat-app/starcat-trending-api/internal/store"
 	"github.com/starcat-app/starcat-trending-api/internal/tokenpool"
+	"github.com/starcat-app/starcat-trending-api/internal/version"
 )
 
 func main() {
@@ -95,7 +96,7 @@ func main() {
 	mux.HandleFunc("GET /healthz", healthzHandler)
 	// R-03 (2026-06-11): /api/v1/ping 专门给 Starcat 客户端「测试连接」按钮用，
 	// 在 middleware 后面挂——同时验证服务可达 + Bearer Key 正确。详见 handler/ping.go。
-	mux.Handle("GET /api/v1/ping", authMW.Wrap(handler.HandlePingV1("trending")))
+	mux.Handle("GET /api/v1/ping", authMW.Wrap(handler.HandlePingV1(version.Service, version.Version)))
 	mux.Handle("GET /internal/stats", authMW.Wrap(handler.HandleStatsV1(sqliteStore)))
 	mux.Handle("GET /api/v1/repos", authMW.Wrap(handler.HandleReposV1(sqliteStore, trendingCache)))
 	// /api/v1/languages 现在直接读 store 聚合（trending_repos 维度），不再走 scheduler 的
@@ -127,7 +128,7 @@ func main() {
 	// 冷启动：爬 daily + 语言列表
 	go sch.Start()
 
-	log.Printf("starcat-trending-api starting on port %s", port)
+	log.Printf("starcat-trending-api %s starting on port %s", version.Version, port)
 	log.Printf("Endpoints:")
 	log.Printf("  GET  /api/v1/ping           - Connectivity probe for Starcat client (auth required)")
 	log.Printf("  GET  /internal/stats        - Aggregated DB stats for admin panel (auth required)")

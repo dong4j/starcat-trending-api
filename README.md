@@ -97,6 +97,14 @@ The default port is `5002`.
 
 Every data endpoint requires an `Authorization: Bearer <api-key>` header.
 
+### `GET /api/v1/ping` (Authentication Required)
+
+Returns the service identity and the build version injected from the release tag:
+
+```json
+{"schema_version":1,"data":{"service":"trending","version":"1.2.3","ok":true}}
+```
+
 ### `GET /api/v1/repos?lang=&since=&limit=` (Authentication Required)
 
 Returns a list of trending repositories with fields enriched through the GitHub API.

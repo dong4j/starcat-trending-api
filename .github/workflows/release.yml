@@ -79,7 +79,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
 
       # 2. 安装 Go (与 go.yml 矩阵版本一致: 1.25)
@@ -89,6 +89,17 @@ jobs:
         with:
           go-version: '1.25'
           cache: true
+
+      - name: Resolve release version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            TAG="${{ github.event.workflow_run.head_branch }}"
+          else
+            TAG=$(git describe --tags --exact-match HEAD)
+          fi
+          printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || exit 1
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
       # 3. 跨平台编译 + 打包
       #    -trimpath: 移除构建路径 (二进制可重现)
@@ -104,7 +115,7 @@ jobs:
         run: |
           OUTPUT="${BINARY_NAME}${EXT}"
           echo "Building ${GOOS}/${GOARCH}: ${OUTPUT}"
-          go build -trimpath -ldflags="-s -w" -o "${OUTPUT}" "${ENTRY}"
+          go build -trimpath -ldflags="-s -w -X github.com/starcat-app/starcat-trending-api/internal/version.Version=${{ steps.version.outputs.version }}" -o "${OUTPUT}" "${ENTRY}"
 
           mkdir -p dist
           if [ "${ARCHIVE}" = "zip" ]; then
@@ -142,7 +153,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
 
       # 2. 提取 tag 名
