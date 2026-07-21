@@ -77,7 +77,7 @@ jobs:
       #    workflow_run 模式下默认 checkout 是当前 ref, 不是触发它的 commit
       #    head_sha 是稳定指向, 即使后续有 push 也不会变
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
@@ -151,7 +151,7 @@ jobs:
     steps:
       # 1. Checkout (仅用于 git describe 找 tag, 不实际编译)
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0

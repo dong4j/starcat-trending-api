@@ -19,7 +19,7 @@ jobs:
        startsWith(github.event.workflow_run.head_branch, 'v'))
     concurrency: deploy-group
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # 固定到触发 Go CI 的提交，避免后续 main push 导致部署错位。
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
