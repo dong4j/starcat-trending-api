@@ -14,7 +14,7 @@
 
 如果你发现了安全漏洞，**请不要通过公开 Issue 报告**。
 
-请通过以下方式私下联系：
+优先通过 [GitHub Security Advisories](https://github.com/starcat-app/starcat-trending-api/security/advisories/new) 私下报告；如该入口不可用，再使用以下方式联系：
 
 - **邮件**: dong4j@gmail.com
 - **主题前缀**: `[SECURITY] starcat-trending-api`
