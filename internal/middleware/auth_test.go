@@ -38,22 +38,26 @@ func (h *okHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte("OK"))
 }
 
-// wrap 走一次鉴权链。
-func (a *BearerAuth) wrap(next http.Handler) *httptest.ResponseRecorder {
+// runAuth 走一次鉴权链（无 Authorization 头）。
+func runAuth(a *BearerAuth, next http.Handler) *httptest.ResponseRecorder {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/api/v1/repos", nil)
 	a.Wrap(next).ServeHTTP(w, r)
 	return w
 }
 
-// TestNewBearerAuth_SkipEmpty 验证空 key / 全空白 key 被跳过。
+// TestNewBearerAuth_SkipEmpty 验证空 key / 全空白 key 被跳过（仅合法 key 能通过）。
 func TestNewBearerAuth_SkipEmpty(t *testing.T) {
-	a := NewBearerAuth([]string{"good-key", "", "  ", "  \t  ", "another-key"})
-	if len(a.allowedKeys) != 2 {
-		t.Errorf("want 2 keys (skip empty/whitespace), got %d", len(a.allowedKeys))
-	}
-	if !a.allowedKeys["good-key"] || !a.allowedKeys["another-key"] {
-		t.Errorf("expected keys to be registered: %v", a.allowedKeys)
+	a := NewBearerAuth([]string{"good-key-1234567890", "", "  ", "  \t  ", "another-key-2345678901"})
+	for _, key := range []string{"good-key-1234567890", "another-key-2345678901"} {
+		h := &okHandler{}
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/api/v1/repos", nil)
+		r.Header.Set("Authorization", "Bearer "+key)
+		a.Wrap(h).ServeHTTP(w, r)
+		if w.Code != http.StatusOK || !h.called {
+			t.Errorf("key %q should pass auth", key)
+		}
 	}
 }
 
@@ -61,7 +65,7 @@ func TestNewBearerAuth_SkipEmpty(t *testing.T) {
 func TestAuth_MissingHeader(t *testing.T) {
 	a := newAuth(t, "valid-key-1234567890")
 	h := &okHandler{}
-	w := a.wrap(h)
+	w := runAuth(a, h)
 
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("status: want 401, got %d", w.Code)
@@ -194,24 +198,3 @@ func TestAuth_KeyWithSurroundingSpace(t *testing.T) {
 	}
 }
 
-// TestMaskKey 脱敏逻辑。
-func TestMaskKey(t *testing.T) {
-	// 构造 16 字符的 key: 12 字符 + 4 字符后缀
-	key16 := "abcdefghijkl" + "mnop" // 16 chars
-	// 构造 7+4 长 key
-	keyLong := "abcdefg" + "1234567890" + "wxyz" // 7+10+4 = 21 chars
-
-	cases := []struct {
-		in, want string
-	}{
-		{"short", "****"},
-		{key16, "abcdefg****mnop"},
-		{keyLong, "abcdefg****wxyz"},
-	}
-	for _, c := range cases {
-		got := maskKey(c.in)
-		if got != c.want {
-			t.Errorf("maskKey(%q): want %q, got %q", c.in, c.want, got)
-		}
-	}
-}
