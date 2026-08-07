@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.0.0] - 2026-08-07
+
+### Changed
+- 导出可装配 `server` 包；依赖 `starcat-api-kit`。
+- enricher 的 GitHub GetRepo / RateLimitHandler 改走 kit；`/api/v1/ping` 改用 kit httputil。
+
 ## [Unreleased]
 
 ### Fixed
