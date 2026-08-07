@@ -10,6 +10,7 @@
 ### Changed
 - 导出可装配 `server` 包；依赖 `starcat-api-kit`。
 - enricher 的 GitHub GetRepo / RateLimitHandler 改走 kit；`/api/v1/ping` 改用 kit httputil。
+- `server.FromEnv` 改用 kit `env`。
 
 ## [Unreleased]
 

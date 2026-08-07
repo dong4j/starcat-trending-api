@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
 
+	kitenv "github.com/starcat-app/starcat-api-kit/env"
 	"github.com/starcat-app/starcat-trending-api/internal/enricher"
 	"github.com/starcat-app/starcat-trending-api/internal/handler"
 	"github.com/starcat-app/starcat-trending-api/internal/middleware"
@@ -54,29 +54,20 @@ func DefaultPort() string { return defaultPort }
 
 // FromEnv 从环境变量装配服务（缺失必填项时返回 error，不 log.Fatal）。
 func FromEnv() (*Service, error) {
-	apiKeysStr := strings.TrimSpace(os.Getenv("API_KEYS"))
-	if apiKeysStr == "" {
+	apiKeys, err := kitenv.RequiredCSV("API_KEYS")
+	if err != nil {
 		return nil, fmt.Errorf("API_KEYS env is required")
 	}
-	tokensStr := strings.TrimSpace(os.Getenv("GITHUB_TOKENS"))
-	if tokensStr == "" {
+	tokens, err := kitenv.RequiredCSV("GITHUB_TOKENS")
+	if err != nil {
 		return nil, fmt.Errorf("GITHUB_TOKENS env is required (at least 1 GitHub PAT)")
 	}
 
-	port := strings.TrimSpace(os.Getenv("PORT"))
-	if port == "" {
-		port = defaultPort
-	}
-	storeFile := strings.TrimSpace(os.Getenv("STORE_FILE"))
-	if storeFile == "" {
-		storeFile = "./trending.db"
-	}
-
 	return New(Options{
-		Port:      port,
-		StoreFile: storeFile,
-		APIKeys:   strings.Split(apiKeysStr, ","),
-		Tokens:    strings.Split(tokensStr, ","),
+		Port:      kitenv.OrDefault("PORT", defaultPort),
+		StoreFile: kitenv.OrDefault("STORE_FILE", "./trending.db"),
+		APIKeys:   apiKeys,
+		Tokens:    tokens,
 	})
 }
 
