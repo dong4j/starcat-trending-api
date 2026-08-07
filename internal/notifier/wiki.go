@@ -114,6 +114,8 @@ func (n *WikiNotifier) sendBatch(fullNames []string) error {
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+n.apiKey)
+	// 聚合网关（starcat-api）按 X-SC-Svc 分流；独立 wiki-api 忽略未知头，可安全始终带上。
+	req.Header.Set("X-SC-Svc", "wiki")
 
 	resp, err := n.client.Do(req)
 	if err != nil {
