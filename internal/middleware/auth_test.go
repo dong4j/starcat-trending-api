@@ -197,4 +197,3 @@ func TestAuth_KeyWithSurroundingSpace(t *testing.T) {
 		t.Errorf("trailing space should be trimmed, got %d", w.Code)
 	}
 }
-
