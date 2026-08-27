@@ -191,6 +191,14 @@ Returns a list of trending developers.
 
 Health check that returns `ok`.
 
+## Operations and Metrics
+
+- `GET /internal/stats`: period counts, visibility, enrichment backlog, unavailable rows, and freshness.
+- `GET /internal/metrics/{summary,timeseries,routes,status-codes}`: authenticated aggregate request metrics.
+- Existing `GET /api/v1/repos` and `GET /api/v1/languages` are the bounded Admin Console data views.
+
+Metrics retain route templates only; credentials, queries, bodies, client addresses, and real path parameters are excluded.
+
 ## Authentication
 
 Every `/api/v1/*` and `/internal/*` endpoint requires an

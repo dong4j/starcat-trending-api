@@ -184,6 +184,14 @@ weekly-api `GET /api/v1/trending/zread`。
 
 健康检查，返回 `ok`。
 
+## 运营与调用指标
+
+- `GET /internal/stats`：周期规模、可见性、补全积压、不可用记录和数据新鲜度。
+- `GET /internal/metrics/{summary,timeseries,routes,status-codes}`：鉴权后的聚合调用指标。
+- 现有 `GET /api/v1/repos` 与 `GET /api/v1/languages` 作为 Admin Console 的受限数据视图。
+
+指标只保留路由模板，不保存凭据、查询串、请求体、客户端地址或真实路径参数。
+
 ## 鉴权
 
 所有 `/api/v1/*` 和 `/internal/*` 端点需要 `Authorization: Bearer <api-key>` 头。
