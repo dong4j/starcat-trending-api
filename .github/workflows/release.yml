@@ -84,7 +84,7 @@ jobs:
       # 2. 安装 Go (与 go.yml 矩阵版本一致: 1.25)
       #    cache: true 复用 go mod 下载缓存, 加速重复构建
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: '1.25'
           cache: true
