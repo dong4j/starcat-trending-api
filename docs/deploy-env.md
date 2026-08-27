@@ -44,10 +44,13 @@ fly secrets unset BASE_URL
 
 ## 跟 GitHub Actions 的关系
 
-**完全不用改 `.github/workflows/fly-deploy.yml`**。CI 只负责 `fly deploy --remote-only`, 它不传环境变量 —— secrets 存在 fly 平台侧, 跟代码仓库解耦。
+业务仓库的 GitHub Actions 只负责 CI、镜像和 GitHub Release，**不再部署独立 Fly App**。
+Starcat 官方生产环境由 `starcat-api` 聚合仓从六个业务仓库构建并统一部署；这里的
+`fly secrets` / `fly deploy` 命令仅供第三方自托管独立实例时使用。
 
 ```
-GitHub Actions → fly deploy --remote-only → Fly 平台 (secrets 已就位) → 容器启动
+业务仓库 tag → CI + GitHub Release
+starcat-api 聚合发布 → 单一 Fly App
 ```
 
 ## 别踩的坑
@@ -57,7 +60,7 @@ GitHub Actions → fly deploy --remote-only → Fly 平台 (secrets 已就位) �
 | 把 URL 写进 `fly.toml` 的 `[env]` | 那个文件进 git 仓库, 即使是公开 URL 也不该当环境配置用 |
 | 改完 `main.go` 默认值就以为生效 | 跑过 `fly secrets set` 之后, 默认值就被永久覆盖了, 改代码没用 |
 | 改了 secret 几秒后没看到效果 | 等滚动重启 (5-10s), 还不对就 `fly logs` |
-| 把 `FLY_API_TOKEN` 存到 secrets 一起 | 这个该放 GitHub repo secrets, 不是 fly secrets |
+| 把 `FLY_API_TOKEN` 存到应用 secrets | 自托管时它属于部署端凭据，不应进入应用运行环境 |
 
 ## 其他常用 env 对照
 

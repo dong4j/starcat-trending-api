@@ -4,7 +4,7 @@
 # =============================================================================
 #
 # 用法:
-#   ./scripts/deploy.sh v1.1.0           # 真实部署
+#   ./scripts/deploy.sh v1.1.0           # 真实发版
 #   ./scripts/deploy.sh --dry-run v1.1.0 # 只 echo, 不实际执行 (用于验证)
 #   DRY_RUN=1 ./scripts/deploy.sh v1.1.0 # 同上, 环境变量形式
 #
@@ -26,20 +26,20 @@
 #  10. 合并 PR (--merge, 保留 dev 历史, 不删 dev 分支)
 #  11. checkout main, pull
 #  12. 打 annotated tag v1.1.0 (指向 merge commit)
-#  13. 推送 tag → 触发 .github/workflows/{go,fly-deploy,release}.yml
-#     (go.yml 必跑在前, 成功后 fly-deploy + release 并行跑)
+#  13. 推送 tag → 触发 .github/workflows/{go,release}.yml
+#     (go.yml 必跑在前，成功后 release 创建 GitHub Release)
 #
 # 关键约束 (踩过的坑):
 #   - tag 必须在 PR merge 之后打, 确保 tag 指向 main 的 merge commit,
-#     而不是 dev 的 tip (否则 tag 跟 main HEAD 指向不同 commit,
-#     fly-deploy 会部署到错的代码)
+#     而不是 dev 的 tip，保证发布源码与 main 完全一致
 #   - 不能用 --squash merge, 否则会丢失 dev 上的多个 commit 信息
 #   - PR merge --delete-branch 删远端 dev, step 11.5 立即从 main 重建
 #     (下次发版: git checkout dev → 改 → push → PR, 循环)
 #     若 step 11.5 失败: dev 不存在, 下次发版前手动 git branch dev main
 #   - main / master 上禁止运行此脚本 (会 PR 自己到自己)
-#   - 推 tag 后必须等 go.yml 跑完才会触发 fly-deploy/release
-#     (workflow_run 监听, 失败时不会部署, 必须先修代码重打 tag)
+#   - 推 tag 后必须等 go.yml 跑完才会触发 release
+#     (workflow_run 监听，失败时不会创建 GitHub Release，必须先修代码重打 tag)
+#   - 业务仓库不再独立部署 Fly App；生产部署统一由 starcat-api 聚合仓完成
 #
 # 失败处理: set -e + 任意一步 exit 1 都会停止, 不会留下半成品状态
 # (已创建的 PR 不会自动关, 需要手动去 GitHub 处理或 gh pr close)
@@ -335,13 +335,14 @@ run git tag -a "$VERSION" -m "Release $VERSION
 ok "tagged $VERSION"
 
 # =============================================================================
-# 13. 推送 tag → 触发 .github/workflows/{go,fly-deploy,release}.yml
+# 13. 推送 tag → 触发 .github/workflows/{go,release}.yml
 # =============================================================================
 # 推 tag 后:
 #   - go.yml 先跑 (gofmt + vet + build + test 验证)
-#   - go.yml 成功 → fly-deploy.yml 部署 + release.yml 发版 (并行)
-#   - go.yml 失败 → fly-deploy + release 都不跑 (workflow_run 监听)
-info "pushing tag $VERSION to origin (triggers go.yml → fly-deploy + release)..."
+#   - go.yml 成功 → release.yml 创建 GitHub Release
+#   - go.yml 失败 → release 不跑 (workflow_run 监听)
+#   - Fly 生产部署由 starcat-api 聚合仓单独执行
+info "pushing tag $VERSION to origin (triggers go.yml → release)..."
 run git push origin "$VERSION"
 ok "tag $VERSION pushed"
 
@@ -350,15 +351,14 @@ ok "tag $VERSION pushed"
 # =============================================================================
 echo ""
 echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}  $VERSION 部署完成 ✓${NC}"
+echo -e "${GREEN}  $VERSION 发版提交完成 ✓${NC}"
 echo -e "${GREEN}=========================================${NC}"
 echo ""
 echo "  - PR:      $PR_URL"
 echo "  - Tag:     https://github.com/starcat-app/${PROJECT_NAME}/releases/tag/$VERSION"
-echo "  - Fly:     https://fly.io/apps/${PROJECT_NAME}/healthz"
 echo "  - Actions: https://github.com/starcat-app/${PROJECT_NAME}/actions"
 echo ""
-echo "  下一步: 等待 go.yml → fly-deploy + release 跑完 (通常 < 3 分钟)"
+echo "  下一步: 等待 go.yml → release 跑完，再由 starcat-api 聚合仓统一部署"
 
 # =============================================================================
 # 干跑模式总结
@@ -379,7 +379,7 @@ if [[ -n "$DRY_RUN" ]]; then
     echo "  ✗ git tag -a vX.Y.Z          没跑"
     echo "  ✗ git push origin vX.Y.Z     没跑"
     echo ""
-    echo "去掉 --dry-run 重跑即可真实部署"
+    echo "去掉 --dry-run 重跑即可真实发版"
 fi
 
 # =============================================================================
