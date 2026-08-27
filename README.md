@@ -95,6 +95,7 @@ The default port is `5002`.
 |------|------|--------|
 | `PORT` | Server port | `5002` |
 | `STORE_FILE` | SQLite database path | `./trending.db` |
+| `METRICS_STORE_FILE` | Dedicated request metrics SQLite path | `./trending-metrics.db` |
 | `API_KEYS` | Comma-separated Bearer Token allowlist | Required |
 | `GITHUB_TOKENS` | Comma-separated GitHub PAT pool | Required |
 
@@ -190,6 +191,14 @@ Returns a list of trending developers.
 
 Health check that returns `ok`.
 
+## Operations and Metrics
+
+- `GET /internal/stats`: period counts, visibility, enrichment backlog, unavailable rows, and freshness.
+- `GET /internal/metrics/{summary,timeseries,routes,status-codes}`: authenticated aggregate request metrics.
+- Existing `GET /api/v1/repos` and `GET /api/v1/languages` are the bounded Admin Console data views.
+
+Metrics retain route templates only; credentials, queries, bodies, client addresses, and real path parameters are excluded.
+
 ## Authentication
 
 Every `/api/v1/*` and `/internal/*` endpoint requires an
@@ -228,6 +237,7 @@ fly secrets set \
   API_KEYS="sk-starcat-prodKey1,sk-starcat-prodKey2" \
   GITHUB_TOKENS="ghp_token1,ghp_token2,ghp_token3" \
   STORE_FILE="/data/trending.db" \
+  METRICS_STORE_FILE="/data/trending-metrics.db" \
   -a starcat-trending-api
 
 fly deploy -a starcat-trending-api

@@ -6,7 +6,7 @@ require (
 	github.com/PuerkitoBio/goquery v1.12.0
 	github.com/joho/godotenv v1.5.1
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/starcat-app/starcat-api-kit v0.2.0
+	github.com/starcat-app/starcat-api-kit v0.3.0
 	modernc.org/sqlite v1.52.0
 )
 

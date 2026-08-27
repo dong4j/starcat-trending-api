@@ -95,6 +95,7 @@ go run ./cmd/server/
 |------|------|--------|
 | `PORT` | 服务端口 | `5002` |
 | `STORE_FILE` | SQLite 数据库路径 | `./trending.db` |
+| `METRICS_STORE_FILE` | 独立请求指标 SQLite 路径 | `./trending-metrics.db` |
 | `API_KEYS` | Bearer Token 白名单（逗号分隔） | 必填 |
 | `GITHUB_TOKENS` | GitHub PAT 池（逗号分隔） | 必填 |
 
@@ -183,6 +184,14 @@ weekly-api `GET /api/v1/trending/zread`。
 
 健康检查，返回 `ok`。
 
+## 运营与调用指标
+
+- `GET /internal/stats`：周期规模、可见性、补全积压、不可用记录和数据新鲜度。
+- `GET /internal/metrics/{summary,timeseries,routes,status-codes}`：鉴权后的聚合调用指标。
+- 现有 `GET /api/v1/repos` 与 `GET /api/v1/languages` 作为 Admin Console 的受限数据视图。
+
+指标只保留路由模板，不保存凭据、查询串、请求体、客户端地址或真实路径参数。
+
 ## 鉴权
 
 所有 `/api/v1/*` 和 `/internal/*` 端点需要 `Authorization: Bearer <api-key>` 头。
@@ -220,6 +229,7 @@ fly secrets set \
   API_KEYS="sk-starcat-prodKey1,sk-starcat-prodKey2" \
   GITHUB_TOKENS="ghp_token1,ghp_token2,ghp_token3" \
   STORE_FILE="/data/trending.db" \
+  METRICS_STORE_FILE="/data/trending-metrics.db" \
   -a starcat-trending-api
 
 fly deploy -a starcat-trending-api

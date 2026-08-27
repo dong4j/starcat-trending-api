@@ -15,12 +15,13 @@ import (
 
 // TrendingStatsResponse 是 trending-api 的真实统计摘要。
 type TrendingStatsResponse struct {
-	Repos     map[string]int `json:"repos"`
-	Languages int            `json:"languages"`
+	Repos       map[string]int         `json:"repos"`
+	Languages   int                    `json:"languages"`
+	Operational store.OperationalStats `json:"operational"`
 }
 
 // HandleStatsV1 GET /internal/stats - 返回真实 DB 聚合统计。
-func HandleStatsV1(s store.Store) http.HandlerFunc {
+func HandleStatsV1(s store.StatsStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		repoCounts, err := s.CountReposBySince()
 		if err != nil {
@@ -35,6 +36,12 @@ func HandleStatsV1(s store.Store) http.HandlerFunc {
 				"failed to aggregate languages: "+err.Error(), nil)
 			return
 		}
+		operational, err := s.GetOperationalStats()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR",
+				"failed to aggregate operational stats: "+err.Error(), nil)
+			return
+		}
 
 		cacheStatus := "fresh"
 		if repoCounts["daily"] == 0 && repoCounts["weekly"] == 0 && repoCounts["monthly"] == 0 {
@@ -43,8 +50,9 @@ func HandleStatsV1(s store.Store) http.HandlerFunc {
 		repoCounts["total"] = repoCounts["daily"] + repoCounts["weekly"] + repoCounts["monthly"]
 
 		writeJSONWithMeta(w, TrendingStatsResponse{
-			Repos:     repoCounts,
-			Languages: len(languages),
+			Repos:       repoCounts,
+			Languages:   len(languages),
+			Operational: operational,
 		}, &model.Meta{
 			GeneratedAt: time.Now().Format(time.RFC3339),
 			CacheStatus: cacheStatus,

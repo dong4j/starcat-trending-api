@@ -8,7 +8,6 @@ name: Release
 #
 # 与其他 workflow 的关系 (3 个项目统一):
 #   go.yml         : 验证编译 + 单测 (PR check, 推 tag 时也跑)
-#   fly-deploy.yml : 部署到 Fly.io (同样监听 go.yml 完成)
 #   release.yml    : 多平台构建 + 发 GitHub Release (本文件)
 #   docker.yml     : 推 Docker image 到 ghcr.io (仅 starcat-trending-api 有)
 #                     tag 推送时 release.yml 与 docker.yml 并行跑, 职责不同不冲突
@@ -40,7 +39,7 @@ jobs:
     # 三种情况允许跑:
     # 1. workflow_dispatch 手动触发 (本地测试)
     # 2. workflow_run 触发, go.yml 成功, 且 head_branch 以 v 开头 (即 tag 推送)
-    # 否则: push main 触发的 go.yml 成功不跑 release, fly-deploy.yml 同理
+    # 否则: push main 触发的 go.yml 成功不跑 release
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&

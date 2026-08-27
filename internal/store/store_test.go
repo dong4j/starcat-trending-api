@@ -811,6 +811,30 @@ func TestQueryRepos_FieldRoundTrip(t *testing.T) {
 	}
 }
 
+func TestOperationalStats(t *testing.T) {
+	s := newTestStore(t)
+	defer s.Close()
+	now := time.Now().UTC()
+	for _, repo := range []model.TrendingRepo{
+		{FullName: "starcat/visible", Owner: "starcat", Name: "visible", Since: "daily", CapturedAt: now},
+		{FullName: "starcat/pending", Owner: "starcat", Name: "pending", Since: "weekly", CapturedAt: now},
+	} {
+		if err := s.UpsertRepo(repo); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.UpdateEnriched("starcat/visible", "daily", model.TrendingRepo{IsArchived: true}); err != nil {
+		t.Fatal(err)
+	}
+	stats, err := s.GetOperationalStats()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.StoredRows != 2 || stats.VisibleRows != 1 || stats.PendingEnrich != 1 || stats.ArchivedRows != 1 {
+		t.Fatalf("unexpected operational stats: %#v", stats)
+	}
+}
+
 // TestClose 验证 Close 后再操作会报错（连接已断）。
 func TestClose(t *testing.T) {
 	s := newTestStore(t)
