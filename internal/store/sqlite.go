@@ -158,6 +158,34 @@ func (s *SQLiteStore) CountReposBySince() (map[string]int, error) {
 	return counts, rows.Err()
 }
 
+// GetOperationalStats returns one aggregate snapshot for data quality and freshness monitoring.
+func (s *SQLiteStore) GetOperationalStats() (OperationalStats, error) {
+	var result OperationalStats
+	var lastCaptured, lastEnriched sql.NullString
+	err := s.db.QueryRow(`
+SELECT
+  COUNT(*),
+  COALESCE(SUM(CASE WHEN is_available=1 AND enriched_at IS NOT NULL THEN 1 ELSE 0 END), 0),
+  COALESCE(SUM(CASE WHEN is_available=1 AND enriched_at IS NULL THEN 1 ELSE 0 END), 0),
+  COALESCE(SUM(CASE WHEN is_available=0 THEN 1 ELSE 0 END), 0),
+  COALESCE(SUM(CASE WHEN is_archived=1 THEN 1 ELSE 0 END), 0),
+  COALESCE(SUM(CASE WHEN is_fork=1 THEN 1 ELSE 0 END), 0),
+  MAX(captured_at),
+  MAX(enriched_at)
+FROM trending_repos`).Scan(&result.StoredRows, &result.VisibleRows, &result.PendingEnrich,
+		&result.UnavailableRows, &result.ArchivedRows, &result.ForkRows, &lastCaptured, &lastEnriched)
+	if err != nil {
+		return OperationalStats{}, err
+	}
+	if lastCaptured.Valid {
+		result.LastCapturedAt = lastCaptured.String
+	}
+	if lastEnriched.Valid {
+		result.LastEnrichedAt = lastEnriched.String
+	}
+	return result, nil
+}
+
 // GetUnenrichedRepos 获取待 enrich 的 repo（按 priority desc）。
 func (s *SQLiteStore) GetUnenrichedRepos(limit int) ([]model.TrendingRepo, error) {
 	if limit <= 0 {

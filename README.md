@@ -95,6 +95,7 @@ The default port is `5002`.
 |------|------|--------|
 | `PORT` | Server port | `5002` |
 | `STORE_FILE` | SQLite database path | `./trending.db` |
+| `METRICS_STORE_FILE` | Dedicated request metrics SQLite path | `./trending-metrics.db` |
 | `API_KEYS` | Comma-separated Bearer Token allowlist | Required |
 | `GITHUB_TOKENS` | Comma-separated GitHub PAT pool | Required |
 
@@ -228,6 +229,7 @@ fly secrets set \
   API_KEYS="sk-starcat-prodKey1,sk-starcat-prodKey2" \
   GITHUB_TOKENS="ghp_token1,ghp_token2,ghp_token3" \
   STORE_FILE="/data/trending.db" \
+  METRICS_STORE_FILE="/data/trending-metrics.db" \
   -a starcat-trending-api
 
 fly deploy -a starcat-trending-api

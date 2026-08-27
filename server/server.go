@@ -13,6 +13,7 @@ import (
 	"time"
 
 	kitenv "github.com/starcat-app/starcat-api-kit/env"
+	kitmetrics "github.com/starcat-app/starcat-api-kit/metrics"
 	"github.com/starcat-app/starcat-trending-api/internal/enricher"
 	"github.com/starcat-app/starcat-trending-api/internal/handler"
 	"github.com/starcat-app/starcat-trending-api/internal/middleware"
@@ -27,10 +28,11 @@ const defaultPort = "5002"
 
 // Options 控制 trending 服务装配。
 type Options struct {
-	Port      string
-	StoreFile string
-	APIKeys   []string
-	Tokens    []string
+	Port             string
+	StoreFile        string
+	MetricsStoreFile string
+	APIKeys          []string
+	Tokens           []string
 	// SkipListenLogEndpoints 为 true 时不打印 endpoint 清单（聚合网关挂载时用）。
 	SkipListenLogEndpoints bool
 }
@@ -42,6 +44,7 @@ type Service struct {
 	store       *store.SQLiteStore
 	scheduler   *scheduler.Scheduler
 	enrichQueue *enricher.EnrichQueue
+	metrics     *kitmetrics.Collector
 
 	closeOnce sync.Once
 }
@@ -64,10 +67,11 @@ func FromEnv() (*Service, error) {
 	}
 
 	return New(Options{
-		Port:      kitenv.OrDefault("PORT", defaultPort),
-		StoreFile: kitenv.OrDefault("STORE_FILE", "./trending.db"),
-		APIKeys:   apiKeys,
-		Tokens:    tokens,
+		Port:             kitenv.OrDefault("PORT", defaultPort),
+		StoreFile:        kitenv.OrDefault("STORE_FILE", "./trending.db"),
+		MetricsStoreFile: kitenv.OrDefault("METRICS_STORE_FILE", "./trending-metrics.db"),
+		APIKeys:          apiKeys,
+		Tokens:           tokens,
 	})
 }
 
@@ -78,6 +82,9 @@ func New(opt Options) (*Service, error) {
 	}
 	if strings.TrimSpace(opt.StoreFile) == "" {
 		opt.StoreFile = "./trending.db"
+	}
+	if strings.TrimSpace(opt.MetricsStoreFile) == "" {
+		opt.MetricsStoreFile = ":memory:"
 	}
 	if len(opt.APIKeys) == 0 {
 		return nil, fmt.Errorf("APIKeys is required")
@@ -103,6 +110,20 @@ func New(opt Options) (*Service, error) {
 	sch := scheduler.New(sqliteStore, enc, wikiNotifier, trendingCache)
 
 	authMW := middleware.NewBearerAuth(opt.APIKeys)
+	metricsStore, err := kitmetrics.OpenSQLite(opt.MetricsStoreFile)
+	if err != nil {
+		enrichQueue.Stop()
+		_ = sqliteStore.Close()
+		return nil, fmt.Errorf("initialize metrics SQLite: %w", err)
+	}
+	metricsCollector, err := kitmetrics.NewCollector(kitmetrics.Config{Service: Name(), Store: metricsStore})
+	if err != nil {
+		_ = metricsStore.Close()
+		enrichQueue.Stop()
+		_ = sqliteStore.Close()
+		return nil, fmt.Errorf("initialize metrics collector: %w", err)
+	}
+	metricsHandler := kitmetrics.NewHandler(Name(), metricsCollector.Store())
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", healthzHandler)
@@ -115,6 +136,10 @@ func New(opt Options) (*Service, error) {
 	mux.Handle("POST /internal/sync/languages", authMW.Wrap(handler.HandleAdminSyncLanguages(sch)))
 	mux.Handle("POST /internal/sync/users", authMW.Wrap(handler.HandleAdminSyncUsers()))
 	mux.Handle("POST /internal/enrich/force", authMW.Wrap(handler.HandleEnrichForce(sqliteStore, enc)))
+	mux.Handle("GET /internal/metrics/summary", authMW.Wrap(http.HandlerFunc(metricsHandler.HandleSummary)))
+	mux.Handle("GET /internal/metrics/timeseries", authMW.Wrap(http.HandlerFunc(metricsHandler.HandleTimeseries)))
+	mux.Handle("GET /internal/metrics/routes", authMW.Wrap(http.HandlerFunc(metricsHandler.HandleRoutes)))
+	mux.Handle("GET /internal/metrics/status-codes", authMW.Wrap(http.HandlerFunc(metricsHandler.HandleStatusCodes)))
 
 	// 冷启动 cron + 三档 period 同步与历史 main 相同，必须在独立 goroutine 里跑。
 	go sch.Start()
@@ -135,10 +160,11 @@ func New(opt Options) (*Service, error) {
 
 	return &Service{
 		opts:        opt,
-		handler:     middleware.CORS(mux),
+		handler:     metricsCollector.Wrap(middleware.CORS(mux)),
 		store:       sqliteStore,
 		scheduler:   sch,
 		enrichQueue: enrichQueue,
+		metrics:     metricsCollector,
 	}, nil
 }
 
@@ -158,8 +184,13 @@ func (s *Service) Close() error {
 		if s.enrichQueue != nil {
 			s.enrichQueue.Stop()
 		}
+		if s.metrics != nil {
+			closeErr = s.metrics.Close()
+		}
 		if s.store != nil {
-			closeErr = s.store.Close()
+			if err := s.store.Close(); closeErr == nil {
+				closeErr = err
+			}
 		}
 	})
 	return closeErr

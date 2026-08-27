@@ -95,6 +95,7 @@ go run ./cmd/server/
 |------|------|--------|
 | `PORT` | 服务端口 | `5002` |
 | `STORE_FILE` | SQLite 数据库路径 | `./trending.db` |
+| `METRICS_STORE_FILE` | 独立请求指标 SQLite 路径 | `./trending-metrics.db` |
 | `API_KEYS` | Bearer Token 白名单（逗号分隔） | 必填 |
 | `GITHUB_TOKENS` | GitHub PAT 池（逗号分隔） | 必填 |
 
@@ -220,6 +221,7 @@ fly secrets set \
   API_KEYS="sk-starcat-prodKey1,sk-starcat-prodKey2" \
   GITHUB_TOKENS="ghp_token1,ghp_token2,ghp_token3" \
   STORE_FILE="/data/trending.db" \
+  METRICS_STORE_FILE="/data/trending-metrics.db" \
   -a starcat-trending-api
 
 fly deploy -a starcat-trending-api

@@ -72,6 +72,10 @@ func (f *fakeStore) CountReposBySince() (map[string]int, error) {
 	return map[string]int{"daily": len(f.repos), "weekly": 0, "monthly": 0}, nil
 }
 
+func (f *fakeStore) GetOperationalStats() (store.OperationalStats, error) {
+	return store.OperationalStats{}, nil
+}
+
 // 其它方法不调,panic 提示
 func (f *fakeStore) UpsertRepo(r model.TrendingRepo) error {
 	panic(fmt.Sprintf("UpsertRepo should not be called in handler test, got %s/%s", r.FullName, r.Since))

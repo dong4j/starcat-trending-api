@@ -9,6 +9,25 @@ import (
 	"github.com/starcat-app/starcat-trending-api/internal/model"
 )
 
+// OperationalStats describes enrichment coverage and data freshness for the Admin Console.
+type OperationalStats struct {
+	StoredRows      int    `json:"stored_rows"`
+	VisibleRows     int    `json:"visible_rows"`
+	PendingEnrich   int    `json:"pending_enrich"`
+	UnavailableRows int    `json:"unavailable_rows"`
+	ArchivedRows    int    `json:"archived_rows"`
+	ForkRows        int    `json:"fork_rows"`
+	LastCapturedAt  string `json:"last_captured_at,omitempty"`
+	LastEnrichedAt  string `json:"last_enriched_at,omitempty"`
+}
+
+// StatsStore is the narrower read-only contract used by the operations endpoint.
+type StatsStore interface {
+	CountReposBySince() (map[string]int, error)
+	GetAggregatedLanguages() ([]model.LanguageAggregate, error)
+	GetOperationalStats() (OperationalStats, error)
+}
+
 // Store 定义 trending 数据访问接口。
 type Store interface {
 	// --- Trending Repos ---
@@ -26,6 +45,9 @@ type Store interface {
 	// 口径与 GetRepos 保持一致：仅统计 is_available=1 且 enriched_at IS NOT NULL 的行。
 	// local admin 面板用它展示真实 daily / weekly / monthly 总数，避免把分页返回数误当总量。
 	CountReposBySince() (map[string]int, error)
+
+	// GetOperationalStats returns enrichment coverage without reading repository payloads.
+	GetOperationalStats() (OperationalStats, error)
 
 	// GetUnenrichedRepos 获取待 enrich 的 repo（按 priority desc）。
 	GetUnenrichedRepos(limit int) ([]model.TrendingRepo, error)
