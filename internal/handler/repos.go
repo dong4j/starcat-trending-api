@@ -19,7 +19,7 @@ import (
 // query 参数：
 //   - since: daily | weekly | monthly（默认 daily）
 //   - lang: 语言过滤（如 go / python / swift）
-//   - limit: 1-100（默认 100）
+//   - limit: 1-5000（默认 100；客户端全量拉取「某周期 × 全部语言」时传大 limit）
 //
 // 不接受 source=* 参数。trending-api 固定走 GitHub 单源；zread 数据请改用
 // weekly-api /api/v1/trending/zread。
@@ -69,8 +69,8 @@ func HandleReposV1(s store.Store, cache *TrendingCache) http.HandlerFunc {
 		limit := 100
 		if l := r.URL.Query().Get("limit"); l != "" {
 			fmt.Sscanf(l, "%d", &limit)
-			if limit > 100 {
-				limit = 100
+			if limit > 5000 {
+				limit = 5000
 			}
 		}
 

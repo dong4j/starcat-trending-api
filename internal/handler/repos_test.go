@@ -273,15 +273,15 @@ func TestRepos_LangFilter(t *testing.T) {
 	}
 }
 
-// TestRepos_LimitClampTo100 验证 limit > 100 被 clamp。
-func TestRepos_LimitClampTo100(t *testing.T) {
+// TestRepos_LimitClampTo5000 验证 limit > 5000 被 clamp。
+func TestRepos_LimitClampTo5000(t *testing.T) {
 	f := &fakeStore{}
-	w := doReq(f, "limit=500")
+	w := doReq(f, "limit=99999")
 	if w.Code != http.StatusOK {
-		t.Fatalf("limit=500: want 200, got %d", w.Code)
+		t.Fatalf("limit=99999: want 200, got %d", w.Code)
 	}
-	if f.gotLimit != 100 {
-		t.Errorf("limit should clamp to 100, store got %d", f.gotLimit)
+	if f.gotLimit != 5000 {
+		t.Errorf("limit should clamp to 5000, store got %d", f.gotLimit)
 	}
 }
 
